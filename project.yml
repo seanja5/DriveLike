@@ -1,0 +1,44 @@
+name: DriveLike
+options:
+  bundleIdPrefix: com.drivelike
+  deploymentTarget:
+    iOS: "16.2"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: 87Q5X6P55P
+    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.0"
+
+targets:
+  DriveLike:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.2"
+    sources:
+      - path: DriveLike
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.drivelike.app
+        INFOPLIST_FILE: DriveLike/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DriveLike/DriveLike.entitlements
+    dependencies:
+      - target: DriveLikeWidget
+
+  DriveLikeWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.2"
+    sources:
+      - path: DriveLikeWidget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.drivelike.app.widget
+        INFOPLIST_FILE: DriveLikeWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DriveLikeWidget/DriveLikeWidget.entitlements
+        SKIP_INSTALL: YES
