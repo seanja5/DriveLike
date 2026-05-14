@@ -29,7 +29,7 @@ struct DriveLikeWidget: Widget {
                             .font(.headline)
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                        Text(ctx.state.artistName)
+                    Text(ctx.state.artistName)
                             .font(.caption)
                             .foregroundStyle(.gray)
                             .lineLimit(1)
@@ -42,7 +42,7 @@ struct DriveLikeWidget: Widget {
                     .foregroundStyle(.green)
             } compactTrailing: {
                 Image(systemName: ctx.state.isLiked ? "heart.fill" : "heart")
-                    .foregroundStyle(ctx.state.isLiked ? .red : Color(.systemGray))
+                    .foregroundStyle(ctx.state.isLiked ? .white : Color(.systemGray))
                     .font(.caption.weight(.semibold))
             } minimal: {
                 Image(systemName: "music.note")
@@ -103,7 +103,7 @@ struct HeartButton: View {
     private var heartImage: some View {
         Image(systemName: ctx.state.isLiked ? "heart.fill" : "heart")
             .font(.title)
-            .foregroundStyle(ctx.state.isLiked ? .red : .white)
+            .foregroundStyle(.white)
             .contentTransition(.identity)
     }
 }

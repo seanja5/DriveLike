@@ -9,38 +9,38 @@ final class LiveActivityManager {
 
     // MARK: - Public
 
-    func start(track: SpotifyTrack) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            print("[LiveActivity] Activities not enabled on this device/OS")
-            return
-        }
+    func start(track: SpotifyTrack, isLiked: Bool = false) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let state = DriveLikeActivityAttributes.ContentState(
             trackName: track.name,
             artistName: track.artistName,
             trackId: track.id,
-            isLiked: false
+            isLiked: isLiked
         )
         do {
-            let activity = try Activity<DriveLikeActivityAttributes>.request(
+            activity = try Activity<DriveLikeActivityAttributes>.request(
                 attributes: DriveLikeActivityAttributes(),
                 contentState: state,
                 pushType: nil
             )
-            self.activity = activity
-            print("[LiveActivity] Started: \(activity.id)")
         } catch {
             print("[LiveActivity] Start error: \(error)")
         }
     }
 
-    func markLiked(trackId: String) async {
-        guard let a = activity, a.contentState.trackId == trackId else { return }
+    // Called by the polling loop to sync the liked state that the widget intent wrote
+    // to shared UserDefaults. Only issues an update when the state actually changed.
+    func syncLikedState(trackId: String, isLiked: Bool) async {
+        guard let a = activity,
+              a.contentState.trackId == trackId,
+              a.contentState.isLiked != isLiked
+        else { return }
         let s = a.contentState
         await a.update(using: DriveLikeActivityAttributes.ContentState(
             trackName: s.trackName,
             artistName: s.artistName,
             trackId: s.trackId,
-            isLiked: true
+            isLiked: isLiked
         ))
     }
 

@@ -7,14 +7,14 @@ final class PlaybackPollingManager: ObservableObject {
     @Published var currentTrack: SpotifyTrack?
 
     private var timer: Timer?
-    private let auth = SpotifyAuthManager.shared
-    private let api  = SpotifyAPIManager.shared
-    private let live = LiveActivityManager.shared
+    private let auth     = SpotifyAuthManager.shared
+    private let api      = SpotifyAPIManager.shared
+    private let live     = LiveActivityManager.shared
+    private let defaults = UserDefaults(suiteName: "group.com.drivelike.app")!
 
     // Require 2 consecutive "nothing playing" responses before ending the Live Activity.
-    // This prevents a single slow/flaky API response from killing the activity mid-song.
     private var consecutiveEmptyPolls = 0
-    private let emptyPollThreshold = 2
+    private let emptyPollThreshold    = 2
 
     // MARK: - Public
 
@@ -31,7 +31,6 @@ final class PlaybackPollingManager: ObservableObject {
         timer = nil
     }
 
-    /// Called from AppDelegate background tasks — same logic as the timer poll.
     func forcePoll() async {
         await poll()
     }
@@ -44,10 +43,20 @@ final class PlaybackPollingManager: ObservableObject {
             let track = try await api.getCurrentlyPlaying()
             if let track {
                 consecutiveEmptyPolls = 0
+
+                // Read the set of track IDs that the widget intent has liked.
+                let likedIds = Set(defaults.stringArray(forKey: "drivelike_liked_ids") ?? [])
+                let isLiked  = likedIds.contains(track.id)
+
                 if currentTrack?.id != track.id {
+                    // New track — end old activity and start a fresh one.
                     if currentTrack != nil { await live.end() }
-                    await live.start(track: track)
+                    await live.start(track: track, isLiked: isLiked)
                     currentTrack = track
+                } else {
+                    // Same track still playing — sync liked state in case the widget
+                    // intent wrote to UserDefaults since the last poll.
+                    await live.syncLikedState(trackId: track.id, isLiked: isLiked)
                 }
             } else {
                 consecutiveEmptyPolls += 1
