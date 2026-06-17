@@ -11,6 +11,15 @@ final class LiveActivityManager {
 
     func start(track: SpotifyTrack, isLiked: Bool = false) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+
+        // End any orphaned activities left over from a previous app session.
+        // Without this, Activity.request() fails silently and the old dead
+        // activity stays on the lock screen with a non-functional heart button.
+        for orphan in Activity<DriveLikeActivityAttributes>.activities {
+            await orphan.end(dismissalPolicy: .immediate)
+        }
+        activity = nil
+
         let state = DriveLikeActivityAttributes.ContentState(
             trackName: track.name,
             artistName: track.artistName,
@@ -36,11 +45,14 @@ final class LiveActivityManager {
               a.contentState.isLiked != isLiked
         else { return }
         let s = a.contentState
-        await a.update(using: DriveLikeActivityAttributes.ContentState(
-            trackName: s.trackName,
-            artistName: s.artistName,
-            trackId: s.trackId,
-            isLiked: isLiked
+        await a.update(ActivityContent(
+            state: DriveLikeActivityAttributes.ContentState(
+                trackName: s.trackName,
+                artistName: s.artistName,
+                trackId: s.trackId,
+                isLiked: isLiked
+            ),
+            staleDate: nil
         ))
     }
 

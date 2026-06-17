@@ -23,7 +23,7 @@ final class SpotifyAPIManager {
         let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as! HTTPURLResponse).statusCode
 
-        if status == 204 { return nil }
+        if status == 204 { return nil }               // nothing is playing
         guard status == 200 else { throw SpotifyAPIError.http(status) }
 
         let state = try JSONDecoder().decode(PlayerState.self, from: data)
@@ -36,7 +36,65 @@ final class SpotifyAPIManager {
         )
     }
 
-    // MARK: - Like Track
+    // MARK: - Playlist
+
+    func getOrCreateDriveLikePlaylist() async throws -> String {
+        guard let token else { throw SpotifyAPIError.noToken }
+
+        // Get the current user's Spotify ID.
+        var meReq = URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)
+        meReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (meData, meResp) = try await URLSession.shared.data(for: meReq)
+        guard (meResp as! HTTPURLResponse).statusCode == 200 else {
+            throw SpotifyAPIError.http((meResp as! HTTPURLResponse).statusCode)
+        }
+        struct Me: Decodable { let id: String }
+        let userId = try JSONDecoder().decode(Me.self, from: meData).id
+
+        // Create a new private "DriveLike" playlist.
+        let url = URL(string: "https://api.spotify.com/v1/users/\(userId)/playlists")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "name": "DriveLike",
+            "description": "Songs liked while driving with DriveLike",
+            "public": false
+        ])
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let code = (resp as! HTTPURLResponse).statusCode
+        guard code == 201 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[SpotifyAPI] createPlaylist HTTP \(code): \(body)")
+            throw SpotifyAPIError.http(code)
+        }
+        struct Playlist: Decodable { let id: String }
+        return try JSONDecoder().decode(Playlist.self, from: data).id
+    }
+
+    func addTrackToPlaylist(trackId: String, playlistId: String) async throws {
+        guard let token else { throw SpotifyAPIError.noToken }
+
+        let url = URL(string: "https://api.spotify.com/v1/playlists/\(playlistId)/tracks")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "uris": ["spotify:track:\(trackId)"]
+        ])
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let code = (resp as! HTTPURLResponse).statusCode
+        guard code == 201 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[SpotifyAPI] addToPlaylist HTTP \(code): \(body)")
+            throw SpotifyAPIError.http(code)
+        }
+        print("[SpotifyAPI] Added \(trackId) to playlist \(playlistId)")
+    }
+
+    // MARK: - Like Track (requires user-library-modify — blocked in dev mode, kept for future)
 
     func likeTrack(id: String) async throws {
         guard let token else { throw SpotifyAPIError.noToken }
@@ -49,9 +107,13 @@ final class SpotifyAPIManager {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (_, resp) = try await URLSession.shared.data(for: req)
-        guard (resp as! HTTPURLResponse).statusCode == 200 else {
-            throw SpotifyAPIError.invalidResponse
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let code = (resp as! HTTPURLResponse).statusCode
+        guard code == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? "(no body)"
+            print("[SpotifyAPI] likeTrack HTTP \(code): \(body)")
+            throw SpotifyAPIError.http(code)
         }
+        print("[SpotifyAPI] likeTrack succeeded for \(id)")
     }
 }

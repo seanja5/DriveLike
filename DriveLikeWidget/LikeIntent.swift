@@ -5,91 +5,128 @@ import Foundation
 @available(iOS 17.0, *)
 struct LikeTrackIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Like Track"
-    static var description = IntentDescription("Like the currently playing Spotify track")
+    static var description = IntentDescription("Save the currently playing track to your DriveLike list")
 
-    @Parameter(title: "Track ID")
-    var trackId: String
+    @Parameter(title: "Track ID")     var trackId: String
+    @Parameter(title: "Track Name")   var trackName: String
+    @Parameter(title: "Artist Name")  var artistName: String
 
-    init() { trackId = "" }
-    init(trackId: String) { self.trackId = trackId }
+    init() { trackId = ""; trackName = ""; artistName = "" }
+    init(trackId: String, trackName: String, artistName: String) {
+        self.trackId    = trackId
+        self.trackName  = trackName
+        self.artistName = artistName
+    }
 
     func perform() async throws -> some IntentResult {
         guard !trackId.isEmpty else { return .result() }
 
-        let defaults = UserDefaults(suiteName: "group.com.drivelike.app")!
+        // Read the token from the shared file — UserDefaults is unreliable from the widget process.
+        guard let cache = SharedStore.readTokenCache(), cache.expiryDate > Date() else {
+            print("[LikeIntent] No valid token in SharedStore — aborting")
+            return .result()
+        }
+        let token = cache.accessToken
 
-        // Refresh the token if expired — widget extension has no SpotifyAuthManager.
-        guard let token = await validToken(from: defaults) else { return .result() }
+        // Resolve the playlist ID, creating the playlist if this is the very first tap.
+        let playlistId: String
+        if let stored = SharedStore.readPlaylistId() {
+            playlistId = stored
+        } else {
+            print("[LikeIntent] No playlist ID cached — creating DriveLike playlist")
+            guard let id = try? await createDriveLikePlaylist(token: token) else {
+                print("[LikeIntent] Playlist creation failed — aborting")
+                return .result()
+            }
+            SharedStore.writePlaylistId(id)
+            playlistId = id
+        }
 
-        // PUT /v1/me/tracks — saves to Liked Songs.
-        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/tracks")!)
-        req.httpMethod = "PUT"
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["ids": [trackId]])
-        _ = try? await URLSession.shared.data(for: req)
+        // Add the track to the playlist.
+        let added = await addTrackToPlaylist(trackId: trackId, playlistId: playlistId, token: token)
+        if added {
+            print("[LikeIntent] Added '\(trackName)' to playlist \(playlistId)")
+        } else {
+            print("[LikeIntent] Failed to add '\(trackName)' to playlist")
+        }
 
-        // Write the liked ID to shared UserDefaults. The main app's polling loop reads
-        // this every 5 s and updates the Live Activity — a reliable fallback for the
-        // direct Activity update below, which can fail when extension/app processes diverge.
-        var liked = Set(defaults.stringArray(forKey: "drivelike_liked_ids") ?? [])
-        liked.insert(trackId)
-        defaults.set(Array(liked), forKey: "drivelike_liked_ids")
+        // Update local liked state so the polling loop reflects the heart immediately.
+        SharedStore.appendLikedTrack(LikedTrack(
+            trackId:    trackId,
+            trackName:  trackName,
+            artistName: artistName,
+            likedAt:    Date()
+        ))
+        SharedStore.addLikedId(trackId)
 
-        // Also try an immediate Live Activity update from within the extension.
+        // Fill the heart in the Live Activity.
         for activity in Activity<DriveLikeActivityAttributes>.activities
-                 where activity.contentState.trackId == trackId {
+                where activity.contentState.trackId == trackId {
             let s = activity.contentState
-            await activity.update(using: DriveLikeActivityAttributes.ContentState(
-                trackName: s.trackName,
-                artistName: s.artistName,
-                trackId: s.trackId,
-                isLiked: true
+            await activity.update(ActivityContent(
+                state: DriveLikeActivityAttributes.ContentState(
+                    trackName: s.trackName,
+                    artistName: s.artistName,
+                    trackId: s.trackId,
+                    isLiked: true
+                ),
+                staleDate: nil
             ))
         }
 
         return .result()
     }
 
-    // MARK: - Token management
+    // MARK: - Spotify API helpers (inline — SpotifyAPIManager is main-app only)
 
-    private func validToken(from defaults: UserDefaults) async -> String? {
-        let existing = defaults.string(forKey: "spotify_access_token")
-        let expiry   = defaults.object(forKey: "spotify_token_expiry") as? Date
-
-        if let expiry, expiry > Date().addingTimeInterval(60), let existing {
-            return existing
+    private func createDriveLikePlaylist(token: String) async throws -> String {
+        // Step 1: get the current user's Spotify ID.
+        var meReq = URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)
+        meReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (meData, meResp) = try await URLSession.shared.data(for: meReq)
+        guard (meResp as! HTTPURLResponse).statusCode == 200 else {
+            throw URLError(.badServerResponse)
         }
+        struct Me: Decodable { let id: String }
+        let userId = try JSONDecoder().decode(Me.self, from: meData).id
 
-        guard let refreshToken = defaults.string(forKey: "spotify_refresh_token") else {
-            return existing
-        }
-
-        return await refreshAccessToken(refreshToken, into: defaults) ?? existing
-    }
-
-    private func refreshAccessToken(_ refreshToken: String, into defaults: UserDefaults) async -> String? {
-        var req = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
+        // Step 2: create the private "DriveLike" playlist.
+        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/users/\(userId)/playlists")!)
         req.httpMethod = "POST"
-        req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let encoded = refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? refreshToken
-        req.httpBody = "grant_type=refresh_token&refresh_token=\(encoded)&client_id=b9d717af8d1549f58667611f6f0b2254"
-            .data(using: .utf8)
-
-        guard let (data, _) = try? await URLSession.shared.data(for: req),
-              let tr = try? JSONDecoder().decode(TokenRefreshResponse.self, from: data)
-        else { return nil }
-
-        defaults.set(tr.access_token, forKey: "spotify_access_token")
-        defaults.set(Date().addingTimeInterval(Double(tr.expires_in)), forKey: "spotify_token_expiry")
-        if let r = tr.refresh_token { defaults.set(r, forKey: "spotify_refresh_token") }
-
-        return tr.access_token
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "name": "DriveLike",
+            "description": "Songs liked while driving with DriveLike",
+            "public": false
+        ])
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as! HTTPURLResponse).statusCode == 201 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[LikeIntent] createPlaylist error: \(body)")
+            throw URLError(.badServerResponse)
+        }
+        struct Playlist: Decodable { let id: String }
+        return try JSONDecoder().decode(Playlist.self, from: data).id
     }
-}
 
-private struct TokenRefreshResponse: Decodable {
-    let access_token: String
-    let expires_in: Int
-    let refresh_token: String?
+    private func addTrackToPlaylist(trackId: String, playlistId: String, token: String) async -> Bool {
+        guard let url = URL(string: "https://api.spotify.com/v1/playlists/\(playlistId)/tracks") else {
+            return false
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "uris": ["spotify:track:\(trackId)"]
+        ])
+        guard let (data, resp) = try? await URLSession.shared.data(for: req) else { return false }
+        let code = (resp as! HTTPURLResponse).statusCode
+        if code != 201 {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[LikeIntent] addTrack HTTP \(code): \(body)")
+        }
+        return code == 201
+    }
 }

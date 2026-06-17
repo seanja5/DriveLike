@@ -5,7 +5,7 @@ import AuthenticationServices
 private let kAppGroup   = "group.com.drivelike.app"
 private let kClientId   = "b9d717af8d1549f58667611f6f0b2254"
 private let kRedirectUri = "drivelike://callback"
-private let kScopes     = "user-read-playback-state user-library-modify user-read-currently-playing"
+private let kScopes     = "user-read-playback-state user-read-currently-playing playlist-modify-private"
 
 @MainActor
 final class SpotifyAuthManager: NSObject, ObservableObject {
@@ -21,8 +21,17 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
         super.init()
         if let expiry = defaults.object(forKey: "spotify_token_expiry") as? Date,
            expiry > Date(),
-           defaults.string(forKey: "spotify_access_token") != nil {
+           let token = defaults.string(forKey: "spotify_access_token") {
             isAuthenticated = true
+            // Seed the shared file immediately so the widget extension has the token
+            // even if postToken() hasn't run since the last install.
+            let remaining = max(60, Int(expiry.timeIntervalSince(Date())))
+            SharedStore.writeTokenCache(
+                accessToken: token,
+                refreshToken: defaults.string(forKey: "spotify_refresh_token"),
+                expiresIn: remaining
+            )
+            // Playlist creation is handled by the polling loop on first poll after auth.
         }
     }
 
@@ -40,6 +49,7 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
             .init(name: "code_challenge_method", value: "S256"),
             .init(name: "code_challenge",        value: challenge),
             .init(name: "scope",                 value: kScopes),
+            .init(name: "show_dialog",           value: "true"),
         ]
 
         let session = ASWebAuthenticationSession(
@@ -62,7 +72,18 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
 
     func refreshIfNeeded() async {
         guard let expiry = defaults.object(forKey: "spotify_token_expiry") as? Date,
-              expiry < Date().addingTimeInterval(60),
+              let token = defaults.string(forKey: "spotify_access_token")
+        else { return }
+
+        // Keep the shared file current on every poll so the widget always has a valid token.
+        let remaining = max(60, Int(expiry.timeIntervalSince(Date())))
+        SharedStore.writeTokenCache(
+            accessToken: token,
+            refreshToken: defaults.string(forKey: "spotify_refresh_token"),
+            expiresIn: remaining
+        )
+
+        guard expiry < Date().addingTimeInterval(60),
               let refresh = defaults.string(forKey: "spotify_refresh_token")
         else { return }
         await doRefresh(refresh)
@@ -105,6 +126,15 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
         ])
     }
 
+    func logout() {
+        defaults.removeObject(forKey: "spotify_access_token")
+        defaults.removeObject(forKey: "spotify_refresh_token")
+        defaults.removeObject(forKey: "spotify_token_expiry")
+        SharedStore.clearTokenCache()
+        SharedStore.clearReauthNeeded()
+        isAuthenticated = false
+    }
+
     private func postToken(params: [String: String]) async {
         var req = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
         req.httpMethod = "POST"
@@ -124,7 +154,19 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
                 Date().addingTimeInterval(Double(tr.expires_in)),
                 forKey: "spotify_token_expiry"
             )
+            // Write to shared file so the widget extension can reliably read the token.
+            SharedStore.writeTokenCache(
+                accessToken: tr.access_token,
+                refreshToken: tr.refresh_token,
+                expiresIn: tr.expires_in
+            )
+            SharedStore.clearReauthNeeded()
+            if let scope = tr.scope {
+                SharedStore.writeGrantedScopes(scope)
+            }
             isAuthenticated = true
+            print("[SpotifyAuth] Granted scopes: \(tr.scope ?? "(none returned)")")
+            // Playlist creation is handled by the polling loop on first poll after auth.
         } catch {
             print("[SpotifyAuth] Token error: \(error)")
         }
@@ -132,6 +174,7 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
 }
 
 extension SpotifyAuthManager: ASWebAuthenticationPresentationContextProviding {
+    // Called by the system on the main thread; @MainActor class satisfies the requirement.
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         ASPresentationAnchor()
     }
@@ -141,4 +184,5 @@ private struct TokenResponse: Decodable {
     let access_token: String
     let expires_in: Int
     let refresh_token: String?
+    let scope: String?
 }

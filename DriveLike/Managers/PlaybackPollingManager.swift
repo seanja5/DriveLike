@@ -5,6 +5,8 @@ final class PlaybackPollingManager: ObservableObject {
     static let shared = PlaybackPollingManager()
 
     @Published var currentTrack: SpotifyTrack?
+    @Published var reauthNeeded = false
+    @Published var likedTracks: [LikedTrack] = []
 
     private var timer: Timer?
     private let auth     = SpotifyAuthManager.shared
@@ -38,14 +40,31 @@ final class PlaybackPollingManager: ObservableObject {
     // MARK: - Private
 
     private func poll() async {
+        reauthNeeded = SharedStore.reauthNeeded
+        likedTracks  = SharedStore.readLikedTracks()
         await auth.refreshIfNeeded()
+
+        // Create the DriveLike playlist the first time we poll after auth.
+        // Retries every 5 s until the ID is stored — visible in the main-app console.
+        if SharedStore.readPlaylistId() == nil {
+            do {
+                let id = try await api.getOrCreateDriveLikePlaylist()
+                SharedStore.writePlaylistId(id)
+                print("[Polling] DriveLike playlist ready: \(id)")
+            } catch {
+                print("[Polling] Playlist creation failed (will retry): \(error)")
+            }
+        }
+
         do {
             let track = try await api.getCurrentlyPlaying()
             if let track {
                 consecutiveEmptyPolls = 0
 
-                // Read the set of track IDs that the widget intent has liked.
-                let likedIds = Set(defaults.stringArray(forKey: "drivelike_liked_ids") ?? [])
+                // Merge liked IDs from both the shared file (widget extension writes here)
+                // and the legacy UserDefaults key (backwards compat).
+                let likedIds = SharedStore.readLikedIds()
+                    .union(Set(defaults.stringArray(forKey: "drivelike_liked_ids") ?? []))
                 let isLiked  = likedIds.contains(track.id)
 
                 if currentTrack?.id != track.id {

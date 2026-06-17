@@ -13,6 +13,7 @@ struct DriveLikeWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { ctx in
             DynamicIsland {
+                // Expanded pill
                 DynamicIslandExpandedRegion(.leading) {
                     Image(systemName: "music.note")
                         .foregroundStyle(.green)
@@ -29,7 +30,7 @@ struct DriveLikeWidget: Widget {
                             .font(.headline)
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                    Text(ctx.state.artistName)
+                        Text(ctx.state.artistName)
                             .font(.caption)
                             .foregroundStyle(.gray)
                             .lineLimit(1)
@@ -59,10 +60,12 @@ struct LockScreenView: View {
 
     var body: some View {
         HStack(spacing: 14) {
+            // Spotify-green music icon
             Image(systemName: "music.note")
                 .font(.title2)
                 .foregroundStyle(.green)
 
+            // Track info
             VStack(alignment: .leading, spacing: 3) {
                 Text(ctx.state.trackName)
                     .font(.headline)
@@ -76,6 +79,7 @@ struct LockScreenView: View {
 
             Spacer()
 
+            // Like button
             HeartButton(ctx: ctx)
         }
         .padding(.horizontal, 20)
@@ -90,7 +94,11 @@ struct HeartButton: View {
 
     var body: some View {
         if #available(iOS 17.0, *) {
-            Button(intent: LikeTrackIntent(trackId: ctx.state.trackId)) {
+            Button(intent: LikeTrackIntent(
+                trackId:    ctx.state.trackId,
+                trackName:  ctx.state.trackName,
+                artistName: ctx.state.artistName
+            )) {
                 heartImage
             }
             .disabled(ctx.state.isLiked)
