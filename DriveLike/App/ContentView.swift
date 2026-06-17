@@ -78,6 +78,7 @@ private struct ConnectedView: View {
     @EnvironmentObject var polling: PlaybackPollingManager
     @Environment(\.openURL) var openURL
     @State private var isRefreshing = false
+    private let api = SpotifyAPIManager.shared
 
     var body: some View {
         ScrollView {
@@ -130,6 +131,33 @@ private struct ConnectedView: View {
                 if !polling.likedTracks.isEmpty {
                     LikedTracksSection(tracks: polling.likedTracks, openURL: openURL)
                         .padding(.top, 32)
+                }
+
+                // Test button — calls addTrackToPlaylist from the main app process
+                // to isolate whether the 403 is Spotify-wide or widget-specific
+                if let track = polling.currentTrack,
+                   let playlistId = SharedStore.readPlaylistId() {
+                    Button {
+                        Task {
+                            SharedStore.appendDebugLog("--- MAIN APP TEST ---")
+                            SharedStore.appendDebugLog("Track: \(track.id)")
+                            SharedStore.appendDebugLog("Playlist: \(playlistId)")
+                            do {
+                                try await api.addTrackToPlaylist(trackId: track.id, playlistId: playlistId)
+                            } catch {
+                                SharedStore.appendDebugLog("[MainApp] threw: \(error)")
+                            }
+                        }
+                    } label: {
+                        Text("Test: Add to Playlist (Main App)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Color.orange)
+                            .clipShape(Capsule())
+                    }
+                    .padding(.top, 16)
                 }
 
                 DebugLogView()
