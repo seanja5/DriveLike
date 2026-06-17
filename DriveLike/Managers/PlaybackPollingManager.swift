@@ -44,15 +44,20 @@ final class PlaybackPollingManager: ObservableObject {
         likedTracks  = SharedStore.readLikedTracks()
         await auth.refreshIfNeeded()
 
-        // Create the DriveLike playlist the first time we poll after auth.
-        // Retries every 5 s until the ID is stored — visible in the main-app console.
-        if SharedStore.readPlaylistId() == nil {
+        // Diagnostic: log SharedStore state every poll so we can track what the widget sees.
+        let tokenInStore  = SharedStore.readTokenCache()
+        let playlistInStore = SharedStore.readPlaylistId()
+        print("📡 [Poll] SharedStore token: \(tokenInStore != nil ? "✅ present (expires \(tokenInStore!.expiryDate))" : "❌ MISSING")")
+        print("📡 [Poll] SharedStore playlistId: \(playlistInStore ?? "❌ MISSING — will try to create")")
+
+        if playlistInStore == nil {
+            print("📡 [Poll] Attempting to create DriveLike playlist...")
             do {
                 let id = try await api.getOrCreateDriveLikePlaylist()
                 SharedStore.writePlaylistId(id)
-                print("[Polling] DriveLike playlist ready: \(id)")
+                print("✅ [Poll] DriveLike playlist created and saved: \(id)")
             } catch {
-                print("[Polling] Playlist creation failed (will retry): \(error)")
+                print("❌ [Poll] Playlist creation FAILED: \(error)")
             }
         }
 

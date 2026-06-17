@@ -23,15 +23,21 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
            expiry > Date(),
            let token = defaults.string(forKey: "spotify_access_token") {
             isAuthenticated = true
-            // Seed the shared file immediately so the widget extension has the token
-            // even if postToken() hasn't run since the last install.
             let remaining = max(60, Int(expiry.timeIntervalSince(Date())))
+            print("🟢 [Auth] App launched — existing token found, expires in \(remaining)s. Seeding SharedStore.")
             SharedStore.writeTokenCache(
                 accessToken: token,
                 refreshToken: defaults.string(forKey: "spotify_refresh_token"),
                 expiresIn: remaining
             )
-            // Playlist creation is handled by the polling loop on first poll after auth.
+            let grantedScopes = SharedStore.readGrantedScopes() ?? "(no scope record)"
+            let hasPlaylistScope = grantedScopes.contains("playlist-modify-private")
+            print("🟢 [Auth] Granted scopes on disk: \(grantedScopes)")
+            print(hasPlaylistScope
+                ? "✅ [Auth] playlist-modify-private IS present — playlist writes will work"
+                : "❌ [Auth] playlist-modify-private MISSING — you must Disconnect and reconnect!")
+        } else {
+            print("🔴 [Auth] App launched — no valid token found. User needs to connect.")
         }
     }
 
@@ -73,19 +79,22 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
     func refreshIfNeeded() async {
         guard let expiry = defaults.object(forKey: "spotify_token_expiry") as? Date,
               let token = defaults.string(forKey: "spotify_access_token")
-        else { return }
+        else {
+            print("🔴 [Auth] refreshIfNeeded: no token in UserDefaults")
+            return
+        }
 
-        // Keep the shared file current on every poll so the widget always has a valid token.
-        let remaining = max(60, Int(expiry.timeIntervalSince(Date())))
+        let remaining = max(0, Int(expiry.timeIntervalSince(Date())))
         SharedStore.writeTokenCache(
             accessToken: token,
             refreshToken: defaults.string(forKey: "spotify_refresh_token"),
-            expiresIn: remaining
+            expiresIn: max(60, remaining)
         )
 
         guard expiry < Date().addingTimeInterval(60),
               let refresh = defaults.string(forKey: "spotify_refresh_token")
         else { return }
+        print("🔄 [Auth] Token expiring in \(remaining)s — refreshing now")
         await doRefresh(refresh)
     }
 
@@ -165,8 +174,15 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
                 SharedStore.writeGrantedScopes(scope)
             }
             isAuthenticated = true
-            print("[SpotifyAuth] Granted scopes: \(tr.scope ?? "(none returned)")")
-            // Playlist creation is handled by the polling loop on first poll after auth.
+            let scopes = tr.scope ?? "(none returned)"
+            let hasPlaylistScope = scopes.contains("playlist-modify-private")
+            print("🎉 [Auth] ========================================")
+            print("🎉 [Auth] NEW TOKEN GRANTED")
+            print("🎉 [Auth] Scopes: \(scopes)")
+            print(hasPlaylistScope
+                ? "✅ [Auth] playlist-modify-private IS present — good to go!"
+                : "❌ [Auth] playlist-modify-private MISSING — disconnect and reconnect again!")
+            print("🎉 [Auth] ========================================")
         } catch {
             print("[SpotifyAuth] Token error: \(error)")
         }
