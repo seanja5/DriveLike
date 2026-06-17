@@ -1,0 +1,511 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0413487CC1BC4CB318FB5E10 /* DriveLikeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F8B4D699D1A304C85101D676 /* DriveLikeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0D5D6588878761D5523541C9 /* SpotifyAPIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */; };
+		11E0927A47FA77A0933BF04B /* SpotifyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6693AB9445052650BDB23B /* SpotifyModels.swift */; };
+		244D0D49BF4607614F295474 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD4FC28966377E3B8EB84B9 /* LiveActivityManager.swift */; };
+		25DCBA97338228F2AED68F2A /* SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540747D696D7BB1ACCEAAF3F /* SharedStore.swift */; };
+		271E0181690903CC9E6599B8 /* DriveLikeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4093064C4AA4878405AA0298 /* DriveLikeWidget.swift */; };
+		2AC42343E4C33B669E6F4F1A /* DriveLikeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CBD1C00A7A62D702E2F8547 /* DriveLikeActivityAttributes.swift */; };
+		4DCB58620088D2AAF2460F49 /* PlaybackPollingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F720FDCE5CF993DE1D64C0B3 /* PlaybackPollingManager.swift */; };
+		75C7FF48CD1AC433C28D99EF /* LikeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC5AEA5B658674FE768A98C /* LikeIntent.swift */; };
+		7C8B25F0A3ED2511271EB55A /* SpotifyAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44539DB80DA59E18290085BA /* SpotifyAuthManager.swift */; };
+		92B42D6A1C90BEFA6D5120D3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C6271C299974CCA5E86787 /* AppDelegate.swift */; };
+		9EC8ED04BEF80E211CD720DE /* DriveLikeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A53005B5F483332024F2DCC /* DriveLikeApp.swift */; };
+		CC6A6DEFDD21F0AC7CFA087B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA2803070803F7E6A535C5A /* ContentView.swift */; };
+		E01E76ADD50F1BB6B443C461 /* DriveLikeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CBD1C00A7A62D702E2F8547 /* DriveLikeActivityAttributes.swift */; };
+		ED73F700779911030EEF3878 /* DriveLikeWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55B0F90E8D04B0DFCF00C88F /* DriveLikeWidgetBundle.swift */; };
+		FA8B0793FECFDC07A5811B12 /* SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540747D696D7BB1ACCEAAF3F /* SharedStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		30354211CF4B1FF266C49CEB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D9B817E09EE6A8FD9199D02A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB1A86ECBC9B7CACCC29DFB9;
+			remoteInfo = DriveLikeWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3509406BDDCA6C9C98A0AA9C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0413487CC1BC4CB318FB5E10 /* DriveLikeWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAPIManager.swift; sourceTree = "<group>"; };
+		09D78525CBB3BF44E1809E56 /* DriveLike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DriveLike.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CC5AEA5B658674FE768A98C /* LikeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikeIntent.swift; sourceTree = "<group>"; };
+		1F6693AB9445052650BDB23B /* SpotifyModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyModels.swift; sourceTree = "<group>"; };
+		2A71F73F90A464A78D9D3138 /* DriveLike.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DriveLike.entitlements; sourceTree = "<group>"; };
+		3CBD1C00A7A62D702E2F8547 /* DriveLikeActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveLikeActivityAttributes.swift; sourceTree = "<group>"; };
+		4093064C4AA4878405AA0298 /* DriveLikeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveLikeWidget.swift; sourceTree = "<group>"; };
+		44539DB80DA59E18290085BA /* SpotifyAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAuthManager.swift; sourceTree = "<group>"; };
+		540747D696D7BB1ACCEAAF3F /* SharedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStore.swift; sourceTree = "<group>"; };
+		55B0F90E8D04B0DFCF00C88F /* DriveLikeWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveLikeWidgetBundle.swift; sourceTree = "<group>"; };
+		5805DC2DE8C01D90EE2F9620 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6053FAE2A213A023306F9ED3 /* DriveLikeWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DriveLikeWidget.entitlements; sourceTree = "<group>"; };
+		71C6271C299974CCA5E86787 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		897FDB22CFF8A0D3D1DB716B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9A53005B5F483332024F2DCC /* DriveLikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveLikeApp.swift; sourceTree = "<group>"; };
+		9FD4FC28966377E3B8EB84B9 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		CAA2803070803F7E6A535C5A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F720FDCE5CF993DE1D64C0B3 /* PlaybackPollingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPollingManager.swift; sourceTree = "<group>"; };
+		F8B4D699D1A304C85101D676 /* DriveLikeWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DriveLikeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0FC609726844010B2A1837C1 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				3CBD1C00A7A62D702E2F8547 /* DriveLikeActivityAttributes.swift */,
+				540747D696D7BB1ACCEAAF3F /* SharedStore.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		1CAF0E67B6FAA8C0AAA7BD11 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				71C6271C299974CCA5E86787 /* AppDelegate.swift */,
+				CAA2803070803F7E6A535C5A /* ContentView.swift */,
+				9A53005B5F483332024F2DCC /* DriveLikeApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		22E9C2BC2D978D1C613DF493 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				09D78525CBB3BF44E1809E56 /* DriveLike.app */,
+				F8B4D699D1A304C85101D676 /* DriveLikeWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		27B18C1941E1810026825BE3 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				44539DB80DA59E18290085BA /* SpotifyAuthManager.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		3655AFFFB8569373304B5413 /* API */ = {
+			isa = PBXGroup;
+			children = (
+				0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */,
+				1F6693AB9445052650BDB23B /* SpotifyModels.swift */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		55C0E6B0F6C1BCCA8CAE1CFF /* DriveLikeWidget */ = {
+			isa = PBXGroup;
+			children = (
+				6053FAE2A213A023306F9ED3 /* DriveLikeWidget.entitlements */,
+				4093064C4AA4878405AA0298 /* DriveLikeWidget.swift */,
+				55B0F90E8D04B0DFCF00C88F /* DriveLikeWidgetBundle.swift */,
+				897FDB22CFF8A0D3D1DB716B /* Info.plist */,
+				1CC5AEA5B658674FE768A98C /* LikeIntent.swift */,
+			);
+			path = DriveLikeWidget;
+			sourceTree = "<group>";
+		};
+		A54CCEB168205EB66087C69B /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				9FD4FC28966377E3B8EB84B9 /* LiveActivityManager.swift */,
+				F720FDCE5CF993DE1D64C0B3 /* PlaybackPollingManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		F40143EE28FF2494C649C23F = {
+			isa = PBXGroup;
+			children = (
+				FD8503F306CF808EE01B6AE8 /* DriveLike */,
+				55C0E6B0F6C1BCCA8CAE1CFF /* DriveLikeWidget */,
+				0FC609726844010B2A1837C1 /* Shared */,
+				22E9C2BC2D978D1C613DF493 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FD8503F306CF808EE01B6AE8 /* DriveLike */ = {
+			isa = PBXGroup;
+			children = (
+				2A71F73F90A464A78D9D3138 /* DriveLike.entitlements */,
+				5805DC2DE8C01D90EE2F9620 /* Info.plist */,
+				3655AFFFB8569373304B5413 /* API */,
+				1CAF0E67B6FAA8C0AAA7BD11 /* App */,
+				27B18C1941E1810026825BE3 /* Auth */,
+				A54CCEB168205EB66087C69B /* Managers */,
+			);
+			path = DriveLike;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E9DAD1CFFC36BA7BC9ACC97A /* DriveLike */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3E8BE2D6F43818A988D1FD8 /* Build configuration list for PBXNativeTarget "DriveLike" */;
+			buildPhases = (
+				D60BBB98A70D1E464D6DC8A7 /* Sources */,
+				3509406BDDCA6C9C98A0AA9C /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F6963B8CA84113746B7ED4AB /* PBXTargetDependency */,
+			);
+			name = DriveLike;
+			packageProductDependencies = (
+			);
+			productName = DriveLike;
+			productReference = 09D78525CBB3BF44E1809E56 /* DriveLike.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EB1A86ECBC9B7CACCC29DFB9 /* DriveLikeWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB7E455F0D4C432FA234B8DE /* Build configuration list for PBXNativeTarget "DriveLikeWidget" */;
+			buildPhases = (
+				38670F1AF6957ECF5898CD17 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DriveLikeWidget;
+			packageProductDependencies = (
+			);
+			productName = DriveLikeWidget;
+			productReference = F8B4D699D1A304C85101D676 /* DriveLikeWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D9B817E09EE6A8FD9199D02A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					E9DAD1CFFC36BA7BC9ACC97A = {
+						DevelopmentTeam = 87Q5X6P55P;
+					};
+					EB1A86ECBC9B7CACCC29DFB9 = {
+						DevelopmentTeam = 87Q5X6P55P;
+					};
+				};
+			};
+			buildConfigurationList = D2ECBE651C294382665C6B93 /* Build configuration list for PBXProject "DriveLike" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = F40143EE28FF2494C649C23F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 22E9C2BC2D978D1C613DF493 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E9DAD1CFFC36BA7BC9ACC97A /* DriveLike */,
+				EB1A86ECBC9B7CACCC29DFB9 /* DriveLikeWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		38670F1AF6957ECF5898CD17 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2AC42343E4C33B669E6F4F1A /* DriveLikeActivityAttributes.swift in Sources */,
+				271E0181690903CC9E6599B8 /* DriveLikeWidget.swift in Sources */,
+				ED73F700779911030EEF3878 /* DriveLikeWidgetBundle.swift in Sources */,
+				75C7FF48CD1AC433C28D99EF /* LikeIntent.swift in Sources */,
+				FA8B0793FECFDC07A5811B12 /* SharedStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D60BBB98A70D1E464D6DC8A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				92B42D6A1C90BEFA6D5120D3 /* AppDelegate.swift in Sources */,
+				CC6A6DEFDD21F0AC7CFA087B /* ContentView.swift in Sources */,
+				E01E76ADD50F1BB6B443C461 /* DriveLikeActivityAttributes.swift in Sources */,
+				9EC8ED04BEF80E211CD720DE /* DriveLikeApp.swift in Sources */,
+				244D0D49BF4607614F295474 /* LiveActivityManager.swift in Sources */,
+				4DCB58620088D2AAF2460F49 /* PlaybackPollingManager.swift in Sources */,
+				25DCBA97338228F2AED68F2A /* SharedStore.swift in Sources */,
+				0D5D6588878761D5523541C9 /* SpotifyAPIManager.swift in Sources */,
+				7C8B25F0A3ED2511271EB55A /* SpotifyAuthManager.swift in Sources */,
+				11E0927A47FA77A0933BF04B /* SpotifyModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F6963B8CA84113746B7ED4AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB1A86ECBC9B7CACCC29DFB9 /* DriveLikeWidget */;
+			targetProxy = 30354211CF4B1FF266C49CEB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0B76525FC88F36077910B889 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 87Q5X6P55P;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		6792AE094E9281C2294F8AFA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 87Q5X6P55P;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		CF3CC3E229F74380F6E6643B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DriveLike/DriveLike.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = DriveLike/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.drivelike.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D8595E8582DDEE54FE776BD9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DriveLikeWidget/DriveLikeWidget.entitlements;
+				INFOPLIST_FILE = DriveLikeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.drivelike.app.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E5CCEBD42369148E2595BC23 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DriveLike/DriveLike.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = DriveLike/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.drivelike.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F0FA0B3D00AB73ED17A00E04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DriveLikeWidget/DriveLikeWidget.entitlements;
+				INFOPLIST_FILE = DriveLikeWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.drivelike.app.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BB7E455F0D4C432FA234B8DE /* Build configuration list for PBXNativeTarget "DriveLikeWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D8595E8582DDEE54FE776BD9 /* Debug */,
+				F0FA0B3D00AB73ED17A00E04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2ECBE651C294382665C6B93 /* Build configuration list for PBXProject "DriveLike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B76525FC88F36077910B889 /* Debug */,
+				6792AE094E9281C2294F8AFA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E3E8BE2D6F43818A988D1FD8 /* Build configuration list for PBXNativeTarget "DriveLike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF3CC3E229F74380F6E6643B /* Debug */,
+				E5CCEBD42369148E2595BC23 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D9B817E09EE6A8FD9199D02A /* Project object */;
+}
