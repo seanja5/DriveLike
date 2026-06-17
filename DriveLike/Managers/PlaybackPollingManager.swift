@@ -49,8 +49,13 @@ final class PlaybackPollingManager: ObservableObject {
         let playlistInStore = SharedStore.readPlaylistId()
         let tokenStatus = tokenInStore != nil ? "present (expires \(tokenInStore!.expiryDate))" : "MISSING"
         let playlistStatus = playlistInStore ?? "MISSING"
+        let grantedScopes = SharedStore.readGrantedScopes() ?? "MISSING"
+        let hasScope = grantedScopes.contains("playlist-modify-private")
         print("📡 [Poll] token=\(tokenStatus) playlist=\(playlistStatus)")
-        SharedStore.appendDebugLog("[Poll] token=\(tokenStatus) | playlist=\(playlistStatus)")
+        SharedStore.appendDebugLog("[Poll] token=\(tokenStatus)")
+        SharedStore.appendDebugLog("[Poll] playlist=\(playlistStatus)")
+        SharedStore.appendDebugLog("[Poll] scopes=\(grantedScopes)")
+        SharedStore.appendDebugLog("[Poll] has playlist-modify-private: \(hasScope ? "YES" : "NO ← THIS IS THE PROBLEM")")
 
         if playlistInStore == nil {
             SharedStore.appendDebugLog("[Poll] No playlist ID — attempting to create DriveLike playlist...")

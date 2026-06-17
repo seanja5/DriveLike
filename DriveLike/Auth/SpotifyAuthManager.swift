@@ -71,7 +71,7 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
             Task { await self.exchangeCode(code) }
         }
         session.presentationContextProvider = self
-        session.prefersEphemeralWebBrowserSession = false
+        session.prefersEphemeralWebBrowserSession = true
         session.start()
         authSession = session
     }

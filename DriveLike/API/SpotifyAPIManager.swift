@@ -40,26 +40,10 @@ final class SpotifyAPIManager {
 
     func getOrCreateDriveLikePlaylist() async throws -> String {
         guard let token else {
-            print("❌ [API] getOrCreatePlaylist: no token in UserDefaults")
+            print("❌ [API] getOrCreatePlaylist: no token")
             throw SpotifyAPIError.noToken
         }
-        print("🎵 [API] Getting Spotify user ID (token prefix: \(String(token.prefix(12)))...)")
-
-        var meReq = URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)
-        meReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (meData, meResp) = try await URLSession.shared.data(for: meReq)
-        let meStatus = (meResp as! HTTPURLResponse).statusCode
-        print("🎵 [API] GET /v1/me → HTTP \(meStatus)")
-        guard meStatus == 200 else {
-            print("❌ [API] /v1/me failed: \(String(data: meData, encoding: .utf8) ?? "")")
-            throw SpotifyAPIError.http(meStatus)
-        }
-        struct Me: Decodable { let id: String }
-        let userId = try JSONDecoder().decode(Me.self, from: meData).id
-        print("🎵 [API] Spotify user ID: \(userId) — creating DriveLike playlist")
-
-        let url = URL(string: "https://api.spotify.com/v1/users/\(userId)/playlists")!
-        var req = URLRequest(url: url)
+        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/playlists")!)
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -70,13 +54,10 @@ final class SpotifyAPIManager {
         ])
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as! HTTPURLResponse).statusCode
-        print("🎵 [API] POST /v1/users/\(userId)/playlists → HTTP \(code)")
+        print("🎵 [API] POST /v1/me/playlists → HTTP \(code)")
         guard code == 201 else {
             let body = String(data: data, encoding: .utf8) ?? "(empty)"
             print("❌ [API] createPlaylist FAILED HTTP \(code): \(body)")
-            if code == 403 {
-                print("❌ [API] 403 = missing scope. You need to Disconnect and reconnect to grant playlist-modify-private.")
-            }
             throw SpotifyAPIError.http(code)
         }
         struct Playlist: Decodable { let id: String }
