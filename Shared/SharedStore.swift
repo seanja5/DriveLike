@@ -145,6 +145,33 @@ enum SharedStore {
         return try? String(contentsOf: url, encoding: .utf8)
     }
 
+    // MARK: - Debug log (written by both processes, displayed in main app UI)
+
+    static func appendDebugLog(_ message: String) {
+        guard let url = containerURL?.appendingPathComponent("debug_log.txt") else { return }
+        let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        let line = Data("[\(ts)] \(message)\n".utf8)
+        if FileManager.default.fileExists(atPath: url.path),
+           let fh = try? FileHandle(forWritingTo: url) {
+            fh.seekToEndOfFile()
+            fh.write(line)
+            try? fh.close()
+        } else {
+            try? line.write(to: url, options: .atomic)
+        }
+    }
+
+    static func readDebugLog() -> String {
+        guard let url = containerURL?.appendingPathComponent("debug_log.txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+        return text
+    }
+
+    static func clearDebugLog() {
+        guard let url = containerURL?.appendingPathComponent("debug_log.txt") else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
     // MARK: - Reauth flag
 
     static var reauthNeeded: Bool {

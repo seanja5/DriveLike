@@ -132,6 +132,9 @@ private struct ConnectedView: View {
                         .padding(.top, 32)
                 }
 
+                DebugLogView()
+                    .padding(.top, 32)
+
                 Button(action: { auth.logout() }) {
                     Text("Disconnect Spotify")
                         .font(.subheadline)
@@ -270,6 +273,53 @@ private struct IdleContent: View {
                 .foregroundStyle(Color(.systemGray2))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+        }
+    }
+}
+
+// MARK: - Debug Log
+
+private struct DebugLogView: View {
+    @State private var log: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("DEBUG LOG")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(.systemGray))
+                Spacer()
+                Button("Clear") {
+                    SharedStore.clearDebugLog()
+                    log = ""
+                }
+                .font(.caption)
+                .foregroundStyle(.green)
+            }
+            .padding(.horizontal, 28)
+
+            if log.isEmpty {
+                Text("No log yet — tap the heart on the lock screen, then come back here.")
+                    .font(.caption)
+                    .foregroundStyle(Color(.systemGray2))
+                    .padding(.horizontal, 28)
+            } else {
+                ScrollView {
+                    Text(log)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                }
+                .frame(maxHeight: 260)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 28)
+            }
+        }
+        .onAppear { log = SharedStore.readDebugLog() }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            log = SharedStore.readDebugLog()
         }
     }
 }

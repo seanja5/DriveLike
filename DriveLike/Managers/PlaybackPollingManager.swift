@@ -47,16 +47,20 @@ final class PlaybackPollingManager: ObservableObject {
         // Diagnostic: log SharedStore state every poll so we can track what the widget sees.
         let tokenInStore  = SharedStore.readTokenCache()
         let playlistInStore = SharedStore.readPlaylistId()
-        print("📡 [Poll] SharedStore token: \(tokenInStore != nil ? "✅ present (expires \(tokenInStore!.expiryDate))" : "❌ MISSING")")
-        print("📡 [Poll] SharedStore playlistId: \(playlistInStore ?? "❌ MISSING — will try to create")")
+        let tokenStatus = tokenInStore != nil ? "present (expires \(tokenInStore!.expiryDate))" : "MISSING"
+        let playlistStatus = playlistInStore ?? "MISSING"
+        print("📡 [Poll] token=\(tokenStatus) playlist=\(playlistStatus)")
+        SharedStore.appendDebugLog("[Poll] token=\(tokenStatus) | playlist=\(playlistStatus)")
 
         if playlistInStore == nil {
-            print("📡 [Poll] Attempting to create DriveLike playlist...")
+            SharedStore.appendDebugLog("[Poll] No playlist ID — attempting to create DriveLike playlist...")
             do {
                 let id = try await api.getOrCreateDriveLikePlaylist()
                 SharedStore.writePlaylistId(id)
+                SharedStore.appendDebugLog("[Poll] Playlist created and saved: \(id)")
                 print("✅ [Poll] DriveLike playlist created and saved: \(id)")
             } catch {
+                SharedStore.appendDebugLog("[Poll] Playlist creation FAILED: \(error)")
                 print("❌ [Poll] Playlist creation FAILED: \(error)")
             }
         }

@@ -19,51 +19,51 @@ struct LikeTrackIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        print("❤️ [LikeIntent] ========== HEART TAPPED ==========")
-        print("❤️ [LikeIntent] Track: '\(trackName)' by \(artistName) (id: \(trackId))")
+        SharedStore.appendDebugLog("--- HEART TAPPED ---")
+        SharedStore.appendDebugLog("Track: '\(trackName)' by \(artistName)")
+        SharedStore.appendDebugLog("TrackID: \(trackId)")
 
         guard !trackId.isEmpty else {
-            print("❌ [LikeIntent] trackId is empty — aborting")
+            SharedStore.appendDebugLog("ABORT: trackId is empty")
             return .result()
         }
 
-        // Read the token from the shared file — UserDefaults is unreliable from the widget process.
         let cache = SharedStore.readTokenCache()
-        print("❤️ [LikeIntent] SharedStore token: \(cache != nil ? "✅ found (expires \(cache!.expiryDate))" : "❌ MISSING")")
-
+        if let cache {
+            let expired = cache.expiryDate <= Date()
+            SharedStore.appendDebugLog("Token in SharedStore: \(expired ? "EXPIRED" : "valid, expires \(cache.expiryDate)")")
+        } else {
+            SharedStore.appendDebugLog("ABORT: No token in SharedStore — open the app so it can write the token")
+            return .result()
+        }
         guard let cache, cache.expiryDate > Date() else {
-            print("❌ [LikeIntent] Token missing or expired — widget cannot call Spotify. Make sure app is open and polling.")
+            SharedStore.appendDebugLog("ABORT: Token is expired")
             return .result()
         }
         let token = cache.accessToken
-        print("❤️ [LikeIntent] Token valid — prefix: \(String(token.prefix(12)))...")
+        SharedStore.appendDebugLog("Token prefix: \(String(token.prefix(16)))...")
 
-        // Resolve the playlist ID.
         let storedPlaylistId = SharedStore.readPlaylistId()
-        print("❤️ [LikeIntent] SharedStore playlistId: \(storedPlaylistId ?? "❌ MISSING — will create now")")
+        SharedStore.appendDebugLog("PlaylistID in SharedStore: \(storedPlaylistId ?? "MISSING — will create now")")
 
         let playlistId: String
         if let stored = storedPlaylistId {
             playlistId = stored
         } else {
-            print("❤️ [LikeIntent] Creating DriveLike playlist from widget intent...")
+            SharedStore.appendDebugLog("Creating DriveLike playlist...")
             guard let id = try? await createDriveLikePlaylist(token: token) else {
-                print("❌ [LikeIntent] Playlist creation failed — cannot save song. Check scope logs above.")
+                SharedStore.appendDebugLog("ABORT: Playlist creation failed (see HTTP error above)")
                 return .result()
             }
             SharedStore.writePlaylistId(id)
             playlistId = id
-            print("✅ [LikeIntent] Playlist created: \(id)")
+            SharedStore.appendDebugLog("Playlist created: \(id)")
         }
 
-        // Add the track to the playlist.
-        print("❤️ [LikeIntent] Adding track to playlist \(playlistId)...")
+        SharedStore.appendDebugLog("Adding track to playlist \(playlistId)...")
         let added = await addTrackToPlaylist(trackId: trackId, playlistId: playlistId, token: token)
-        print(added
-            ? "✅ [LikeIntent] Track added to playlist successfully!"
-            : "❌ [LikeIntent] addTrack FAILED — see HTTP error above")
+        SharedStore.appendDebugLog(added ? "SUCCESS: Track added to playlist!" : "FAILED: addTrack call failed (see HTTP error above)")
 
-        // Update local liked state.
         SharedStore.appendLikedTrack(LikedTrack(
             trackId:    trackId,
             trackName:  trackName,
@@ -72,7 +72,6 @@ struct LikeTrackIntent: LiveActivityIntent {
         ))
         SharedStore.addLikedId(trackId)
 
-        // Fill the heart in the Live Activity.
         var heartFilled = false
         for activity in Activity<DriveLikeActivityAttributes>.activities
                 where activity.contentState.trackId == trackId {
@@ -88,10 +87,8 @@ struct LikeTrackIntent: LiveActivityIntent {
             ))
             heartFilled = true
         }
-        print(heartFilled
-            ? "✅ [LikeIntent] Heart filled in Live Activity"
-            : "⚠️ [LikeIntent] No matching Live Activity found to update heart")
-        print("❤️ [LikeIntent] ========== DONE ==========")
+        SharedStore.appendDebugLog(heartFilled ? "Heart filled in Live Activity" : "WARNING: No Live Activity found to fill heart")
+        SharedStore.appendDebugLog("--- DONE ---")
 
         return .result()
     }
@@ -103,9 +100,9 @@ struct LikeTrackIntent: LiveActivityIntent {
         meReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (meData, meResp) = try await URLSession.shared.data(for: meReq)
         let meStatus = (meResp as! HTTPURLResponse).statusCode
-        print("❤️ [LikeIntent] GET /v1/me → HTTP \(meStatus)")
+        SharedStore.appendDebugLog("GET /v1/me → HTTP \(meStatus)")
         guard meStatus == 200 else {
-            print("❌ [LikeIntent] /v1/me failed: \(String(data: meData, encoding: .utf8) ?? "")")
+            SharedStore.appendDebugLog("  ERROR: \(String(data: meData, encoding: .utf8) ?? "")")
             throw URLError(.badServerResponse)
         }
         struct Me: Decodable { let id: String }
@@ -122,11 +119,11 @@ struct LikeTrackIntent: LiveActivityIntent {
         ])
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as! HTTPURLResponse).statusCode
-        print("❤️ [LikeIntent] POST /playlists → HTTP \(code)")
+        SharedStore.appendDebugLog("POST /users/\(userId)/playlists → HTTP \(code)")
         guard code == 201 else {
             let body = String(data: data, encoding: .utf8) ?? "(empty)"
-            print("❌ [LikeIntent] createPlaylist FAILED HTTP \(code): \(body)")
-            if code == 403 { print("❌ [LikeIntent] 403 = missing playlist-modify-private scope — reconnect Spotify") }
+            SharedStore.appendDebugLog("  ERROR body: \(body)")
+            if code == 403 { SharedStore.appendDebugLog("  403 = missing playlist-modify-private scope!") }
             throw URLError(.badServerResponse)
         }
         struct Playlist: Decodable { let id: String }
@@ -145,13 +142,13 @@ struct LikeTrackIntent: LiveActivityIntent {
             "uris": ["spotify:track:\(trackId)"]
         ])
         guard let (data, resp) = try? await URLSession.shared.data(for: req) else {
-            print("❌ [LikeIntent] addTrack network error")
+            SharedStore.appendDebugLog("  addTrack: network error (no response)")
             return false
         }
         let code = (resp as! HTTPURLResponse).statusCode
-        print("❤️ [LikeIntent] POST /playlists/\(playlistId)/tracks → HTTP \(code)")
+        SharedStore.appendDebugLog("POST /playlists/\(playlistId)/tracks → HTTP \(code)")
         if code != 201 {
-            print("❌ [LikeIntent] addTrack FAILED HTTP \(code): \(String(data: data, encoding: .utf8) ?? "")")
+            SharedStore.appendDebugLog("  ERROR body: \(String(data: data, encoding: .utf8) ?? "")")
         }
         return code == 201
     }

@@ -176,13 +176,13 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
             isAuthenticated = true
             let scopes = tr.scope ?? "(none returned)"
             let hasPlaylistScope = scopes.contains("playlist-modify-private")
-            print("🎉 [Auth] ========================================")
-            print("🎉 [Auth] NEW TOKEN GRANTED")
-            print("🎉 [Auth] Scopes: \(scopes)")
-            print(hasPlaylistScope
-                ? "✅ [Auth] playlist-modify-private IS present — good to go!"
-                : "❌ [Auth] playlist-modify-private MISSING — disconnect and reconnect again!")
-            print("🎉 [Auth] ========================================")
+            SharedStore.clearDebugLog()
+            SharedStore.appendDebugLog("=== NEW TOKEN GRANTED ===")
+            SharedStore.appendDebugLog("Scopes: \(scopes)")
+            SharedStore.appendDebugLog(hasPlaylistScope
+                ? "playlist-modify-private: YES ✓"
+                : "playlist-modify-private: MISSING ✗ — must Disconnect and reconnect!")
+            print("🎉 [Auth] NEW TOKEN — scopes: \(scopes) | hasPlaylistScope=\(hasPlaylistScope)")
         } catch {
             print("[SpotifyAuth] Token error: \(error)")
         }
