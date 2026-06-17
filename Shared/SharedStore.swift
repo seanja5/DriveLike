@@ -115,7 +115,7 @@ enum SharedStore {
     static func readPlaylistId() -> String? {
         guard let url = containerURL?.appendingPathComponent("playlist_id.txt"),
               let id = try? String(contentsOf: url, encoding: .utf8),
-              !id.isEmpty
+              id.count > 4  // guard against empty-string sentinel written on re-auth
         else { return nil }
         return id
     }

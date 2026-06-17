@@ -61,6 +61,7 @@ struct LikeTrackIntent: LiveActivityIntent {
         }
 
         SharedStore.appendDebugLog("Adding track to playlist \(playlistId)...")
+        SharedStore.appendDebugLog("Track URI: spotify:track:\(trackId)")
         let added = await addTrackToPlaylist(trackId: trackId, playlistId: playlistId, token: token)
         SharedStore.appendDebugLog(added ? "SUCCESS: Track added to playlist!" : "FAILED: addTrack call failed (see HTTP error above)")
 
@@ -103,7 +104,7 @@ struct LikeTrackIntent: LiveActivityIntent {
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "name": "DriveLike",
             "description": "Songs liked while driving with DriveLike",
-            "public": false
+            "public": true
         ])
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as! HTTPURLResponse).statusCode
