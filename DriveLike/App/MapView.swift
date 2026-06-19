@@ -159,9 +159,13 @@ struct MapKitMapView: UIViewRepresentable {
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             if let cluster = view.annotation as? MKClusterAnnotation {
                 map.deselectAnnotation(cluster, animated: false)
-                // showAnnotations zooms to fit every member pin; MapKit un-clusters them
-                // once their annotation views no longer overlap at the new zoom level
-                map.showAnnotations(cluster.memberAnnotations, animated: true)
+                // Zoom to ~100 m span; mapViewDidChangeVisibleRegion then kills
+                // clusteringIdentifier so pins always show individually at this level
+                map.setRegion(
+                    MKCoordinateRegion(
+                        center: cluster.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.001, longitudeDelta: 0.001)),
+                    animated: true)
                 return
             }
 
@@ -173,8 +177,19 @@ struct MapKitMapView: UIViewRepresentable {
         }
 
         func mapViewDidChangeVisibleRegion(_ map: MKMapView) {
-            guard let coord = selectedCoordinate else { return }
-            onPositionUpdate?(map.convert(coord, toPointTo: map))
+            // Update callout popup position
+            if let coord = selectedCoordinate {
+                onPositionUpdate?(map.convert(coord, toPointTo: map))
+            }
+
+            // Above 0.003° (~300 m): cluster overlapping pins.
+            // Below 0.003°: disable clustering so every pin is individually tappable
+            // even if they share nearly the same coordinate.
+            let shouldCluster = map.region.span.latitudeDelta > 0.003
+            for annotation in map.annotations where annotation is TrackAnnotation {
+                (map.view(for: annotation) as? GreenPinAnnotationView)?
+                    .clusteringIdentifier = shouldCluster ? "drivelike" : nil
+            }
         }
     }
 }
