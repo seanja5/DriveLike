@@ -33,8 +33,7 @@ final class GreenPinAnnotationView: MKAnnotationView {
         frame = CGRect(x: 0, y: 0, width: 36, height: 36)
         // Circle bottom sits on the geographic coordinate point
         centerOffset = CGPoint(x: 0, y: -18)
-        // Group nearby pins under one cluster identifier
-        clusteringIdentifier = "drivelike"
+        // clusteringIdentifier is set dynamically in viewFor based on zoom level
 
         circle.frame = bounds
         circle.layer.cornerRadius = 18
@@ -135,6 +134,10 @@ struct MapKitMapView: UIViewRepresentable {
         var onPositionUpdate: ((CGPoint) -> Void)?
         var selectedCoordinate: CLLocationCoordinate2D?
 
+        // Tracks whether clustering is currently on so we only re-add annotations
+        // when the state actually flips (not on every region-change callback)
+        var clusteringActive: Bool = true
+
         init(onPinTap: ((LikedTrack, CGPoint) -> Void)?,
              onPositionUpdate: ((CGPoint) -> Void)?) {
             self.onPinTap = onPinTap
@@ -143,7 +146,6 @@ struct MapKitMapView: UIViewRepresentable {
 
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             if let cluster = annotation as? MKClusterAnnotation {
-                // MKMarkerAnnotationView is battle-tested with didSelect — no custom class needed
                 let v = MKMarkerAnnotationView(annotation: cluster, reuseIdentifier: nil)
                 v.markerTintColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 1)
                 v.glyphText = "\(cluster.memberAnnotations.count)"
@@ -152,23 +154,26 @@ struct MapKitMapView: UIViewRepresentable {
                 return v
             }
             guard annotation is TrackAnnotation else { return nil }
-            return map.dequeueReusableAnnotationView(withIdentifier: GreenPinAnnotationView.reuseId,
-                                                     for: annotation)
+            let view = map.dequeueReusableAnnotationView(
+                withIdentifier: GreenPinAnnotationView.reuseId, for: annotation)
+            // Stamp the current clustering preference onto the recycled view
+            (view as? GreenPinAnnotationView)?.clusteringIdentifier =
+                clusteringActive ? "drivelike" : nil
+            return view
         }
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             if let cluster = view.annotation as? MKClusterAnnotation {
                 map.deselectAnnotation(cluster, animated: false)
-                // Zoom to ~100 m span; mapViewDidChangeVisibleRegion then kills
-                // clusteringIdentifier so pins always show individually at this level
+                // Zoom to 0.002° (~200 m) — just below the 0.003° threshold, so
+                // mapViewDidChangeVisibleRegion disables clustering and the pins separate
                 map.setRegion(
                     MKCoordinateRegion(
                         center: cluster.coordinate,
-                        span: MKCoordinateSpan(latitudeDelta: 0.001, longitudeDelta: 0.001)),
+                        span: MKCoordinateSpan(latitudeDelta: 0.002, longitudeDelta: 0.002)),
                     animated: true)
                 return
             }
-
             guard let ann = view.annotation as? TrackAnnotation else { return }
             selectedCoordinate = ann.coordinate
             let pt = map.convert(ann.coordinate, toPointTo: map)
@@ -182,14 +187,17 @@ struct MapKitMapView: UIViewRepresentable {
                 onPositionUpdate?(map.convert(coord, toPointTo: map))
             }
 
-            // Above 0.003° (~300 m): cluster overlapping pins.
-            // Below 0.003°: disable clustering so every pin is individually tappable
-            // even if they share nearly the same coordinate.
+            // Threshold: cluster when zoomed out (span > 0.003° ≈ 300 m),
+            // show individual pins when zoomed in.
             let shouldCluster = map.region.span.latitudeDelta > 0.003
-            for annotation in map.annotations where annotation is TrackAnnotation {
-                (map.view(for: annotation) as? GreenPinAnnotationView)?
-                    .clusteringIdentifier = shouldCluster ? "drivelike" : nil
-            }
+            guard shouldCluster != clusteringActive else { return }
+            clusteringActive = shouldCluster
+
+            // Force MapKit to call viewFor again (the only way clusteringIdentifier
+            // changes take effect) by removing and immediately re-adding all pins.
+            let pins = map.annotations.compactMap { $0 as? TrackAnnotation }
+            map.removeAnnotations(pins)
+            map.addAnnotations(pins)
         }
     }
 }
