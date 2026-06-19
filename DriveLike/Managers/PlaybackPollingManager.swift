@@ -134,7 +134,13 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
                     }
                     currentTrack = track
                 } else {
-                    await live.syncLikedState(trackId: track.id, isLiked: isLiked)
+                    if live.hasActiveActivity {
+                        await live.syncLikedState(trackId: track.id, isLiked: isLiked)
+                    } else {
+                        // Activity was lost (iOS killed it, or start failed) while the same
+                        // song is still playing — restart it via updateTrack.
+                        await live.updateTrack(track, isLiked: isLiked)
+                    }
                 }
             } else {
                 consecutiveEmptyPolls += 1

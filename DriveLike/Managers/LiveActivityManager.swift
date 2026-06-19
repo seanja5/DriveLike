@@ -6,6 +6,7 @@ final class LiveActivityManager {
     static let shared = LiveActivityManager()
 
     private var activity: Activity<DriveLikeActivityAttributes>?
+    var hasActiveActivity: Bool { activity != nil }
 
     // MARK: - Public
 

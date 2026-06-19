@@ -39,15 +39,17 @@ struct DriveLikeWidget: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                Image(systemName: "music.note")
-                    .foregroundStyle(.green)
+                Image(systemName: "car.fill")
+                    .foregroundStyle(Color(red: 0.114, green: 0.729, blue: 0.333))
+                    .font(.caption.weight(.semibold))
             } compactTrailing: {
                 Image(systemName: ctx.state.isLiked ? "heart.fill" : "heart")
                     .foregroundStyle(ctx.state.isLiked ? .white : Color(.systemGray))
                     .font(.caption.weight(.semibold))
             } minimal: {
-                Image(systemName: "music.note")
-                    .foregroundStyle(.green)
+                Image(systemName: "car.fill")
+                    .foregroundStyle(Color(red: 0.114, green: 0.729, blue: 0.333))
+                    .font(.caption2.weight(.semibold))
             }
         }
     }
