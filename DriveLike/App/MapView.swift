@@ -31,6 +31,7 @@ final class GreenPinAnnotationView: MKAnnotationView {
 
     private func configure() {
         frame = CGRect(x: 0, y: 0, width: 36, height: 36)
+        // centerOffset shifts the view so the circle bottom sits on the coordinate point
         centerOffset = CGPoint(x: 0, y: -18)
 
         circle.frame = bounds
@@ -71,8 +72,10 @@ final class GreenPinAnnotationView: MKAnnotationView {
 struct MapKitMapView: UIViewRepresentable {
     let tracks: [LikedTrack]
     let interactive: Bool
-    // CGPoint is the screen coordinate of the annotation view center (for callout positioning)
+    // Called once on tap: (track, mapViewPoint of coordinate)
     var onPinTap: ((LikedTrack, CGPoint) -> Void)? = nil
+    // Called every frame while map moves: updated mapViewPoint of the selected coordinate
+    var onPositionUpdate: ((CGPoint) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let map = MKMapView()
@@ -93,6 +96,7 @@ struct MapKitMapView: UIViewRepresentable {
 
     func updateUIView(_ map: MKMapView, context: Context) {
         context.coordinator.onPinTap = onPinTap
+        context.coordinator.onPositionUpdate = onPositionUpdate
 
         let existing = map.annotations.compactMap { $0 as? TrackAnnotation }
         let existingIds = Set(existing.map { $0.track.trackId })
@@ -122,12 +126,21 @@ struct MapKitMapView: UIViewRepresentable {
         }
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(onPinTap: onPinTap) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPinTap: onPinTap, onPositionUpdate: onPositionUpdate)
+    }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
         var onPinTap: ((LikedTrack, CGPoint) -> Void)?
+        var onPositionUpdate: ((CGPoint) -> Void)?
+        // Geographic coordinate of the currently selected pin (stable across map movement)
+        var selectedCoordinate: CLLocationCoordinate2D?
 
-        init(onPinTap: ((LikedTrack, CGPoint) -> Void)?) { self.onPinTap = onPinTap }
+        init(onPinTap: ((LikedTrack, CGPoint) -> Void)?,
+             onPositionUpdate: ((CGPoint) -> Void)?) {
+            self.onPinTap = onPinTap
+            self.onPositionUpdate = onPositionUpdate
+        }
 
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard annotation is TrackAnnotation else { return nil }
@@ -137,17 +150,27 @@ struct MapKitMapView: UIViewRepresentable {
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             guard let ann = view.annotation as? TrackAnnotation else { return }
-            // Convert annotation view center to screen (window) coordinates
-            let screenPoint = map.convert(view.center, to: nil)
+            // Store the geographic coordinate so we can re-project it on every map move
+            selectedCoordinate = ann.coordinate
+            // Convert to map view's own coordinate space (= screen space since map fills screen)
+            let pt = map.convert(ann.coordinate, toPointTo: map)
             map.deselectAnnotation(ann, animated: false)
-            onPinTap?(ann.track, screenPoint)
+            onPinTap?(ann.track, pt)
+        }
+
+        // Fires continuously during pan and zoom — re-project the pinned coordinate
+        func mapViewDidChangeVisibleRegion(_ map: MKMapView) {
+            guard let coord = selectedCoordinate else { return }
+            let newPt = map.convert(coord, toPointTo: map)
+            onPositionUpdate?(newPt)
         }
     }
 }
 
 // MARK: - Callout Bubble Shape
 
-// Rounded rectangle with a downward-pointing arrow at center-bottom.
+// Rounded rectangle with a downward-pointing arrow centered at the bottom edge.
+// The arrow tip points at the pin; the card body floats above it.
 private struct CalloutBubble: Shape {
     var cornerRadius: CGFloat = 14
     var arrowWidth: CGFloat = 14
@@ -159,6 +182,7 @@ private struct CalloutBubble: Shape {
                           width: rect.width, height: rect.height - arrowHeight)
         let mid = rect.midX
         var p = Path()
+        // Trace clockwise from top-left corner, weaving through the arrow at the bottom
         p.move(to: CGPoint(x: card.minX + r, y: card.minY))
         p.addLine(to: CGPoint(x: card.maxX - r, y: card.minY))
         p.addArc(center: CGPoint(x: card.maxX - r, y: card.minY + r),
@@ -167,7 +191,7 @@ private struct CalloutBubble: Shape {
         p.addArc(center: CGPoint(x: card.maxX - r, y: card.maxY - r),
                  radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
         p.addLine(to: CGPoint(x: mid + arrowWidth / 2, y: card.maxY))
-        p.addLine(to: CGPoint(x: mid, y: rect.maxY))           // arrow tip
+        p.addLine(to: CGPoint(x: mid, y: rect.maxY))            // arrow tip
         p.addLine(to: CGPoint(x: mid - arrowWidth / 2, y: card.maxY))
         p.addLine(to: CGPoint(x: card.minX + r, y: card.maxY))
         p.addArc(center: CGPoint(x: card.minX + r, y: card.maxY - r),
@@ -180,18 +204,22 @@ private struct CalloutBubble: Shape {
     }
 }
 
-// MARK: - Popup size constants (shared between DriveMapView and TrackPinPopup)
+// MARK: - Popup geometry constants
 
 private enum Callout {
-    static let width: CGFloat    = 260
+    static let width: CGFloat      = 260
     static let cardHeight: CGFloat = 68
     static let arrowHeight: CGFloat = 9
     static var totalHeight: CGFloat { cardHeight + arrowHeight }
-    // Vertical offset from pin circle center to popup center
-    // pin top = pinCenter.y - 18; gap = 6; then position popup center above arrow tip
-    static func centerY(from pinCenter: CGPoint) -> CGFloat {
-        pinCenter.y - 18 - 6 - totalHeight / 2
+
+    // coordPt.y is the geographic coordinate projected to screen space.
+    // Because centerOffset = (0, -18), the circle bottom sits AT the coordinate point,
+    // so the circle top = coordPt.y - 36. We place the arrow tip 6pt above circle top.
+    // Popup center = arrowTip - totalHeight/2.
+    static func centerY(from coordPt: CGPoint) -> CGFloat {
+        coordPt.y - 36 - 6 - totalHeight / 2
     }
+
     static func clampedX(_ x: CGFloat) -> CGFloat {
         let half = width / 2 + 12
         return min(max(x, half), UIScreen.main.bounds.width - half)
@@ -206,16 +234,24 @@ struct DriveMapView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTrack: LikedTrack?
-    @State private var pinScreenPoint: CGPoint = .zero
+    @State private var pinCoordPoint: CGPoint = .zero   // map-space projection of selected coordinate
 
     var body: some View {
         ZStack(alignment: .top) {
-            MapKitMapView(tracks: tracks, interactive: true) { tapped, screenPoint in
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-                    selectedTrack = tapped
-                    pinScreenPoint = screenPoint
+            MapKitMapView(
+                tracks: tracks,
+                interactive: true,
+                onPinTap: { tapped, coordPt in
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                        selectedTrack = tapped
+                        pinCoordPoint = coordPt
+                    }
+                },
+                onPositionUpdate: { newPt in
+                    // No animation — this fires every frame during pan/zoom
+                    pinCoordPoint = newPt
                 }
-            }
+            )
             .ignoresSafeArea()
 
             // Back button
@@ -242,7 +278,7 @@ struct DriveMapView: View {
             }
             .padding(.top, 8)
 
-            // Callout popup — floats above the tapped pin
+            // Callout popup — re-positioned every frame to stay glued to the pin
             if let track = selectedTrack {
                 TrackPinPopup(
                     track: track,
@@ -252,8 +288,8 @@ struct DriveMapView: View {
                     }
                 )
                 .position(
-                    x: Callout.clampedX(pinScreenPoint.x),
-                    y: Callout.centerY(from: pinScreenPoint)
+                    x: Callout.clampedX(pinCoordPoint.x),
+                    y: Callout.centerY(from: pinCoordPoint)
                 )
                 .transition(.scale(scale: 0.78, anchor: .bottom).combined(with: .opacity))
                 .zIndex(10)
@@ -279,13 +315,11 @@ struct TrackPinPopup: View {
 
     var body: some View {
         ZStack {
-            // Background: glass fill + green-tinted stroke
             CalloutBubble(cornerRadius: 14, arrowWidth: 14, arrowHeight: Callout.arrowHeight)
                 .fill(.ultraThinMaterial)
             CalloutBubble(cornerRadius: 14, arrowWidth: 14, arrowHeight: Callout.arrowHeight)
                 .stroke(Color.accent.opacity(0.45), lineWidth: 1)
 
-            // Content sits in the card area (above arrow)
             HStack(spacing: 10) {
                 Group {
                     if let urlStr = details?.albumArtURL, let url = URL(string: urlStr) {
@@ -328,7 +362,7 @@ struct TrackPinPopup: View {
                 .accessibilityLabel("Dismiss")
             }
             .padding(.horizontal, 12)
-            // Push content up out of the arrow area
+            // Keep content inside the card area, above the arrow
             .padding(.bottom, Callout.arrowHeight)
             .frame(height: Callout.totalHeight)
         }
@@ -364,7 +398,6 @@ struct MapPreviewCard: View {
                     MapKitMapView(tracks: tracks, interactive: false)
                 }
 
-                // Glass label bar
                 HStack(spacing: 8) {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 13, weight: .semibold))
