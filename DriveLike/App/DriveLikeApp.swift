@@ -26,6 +26,11 @@ struct DriveLikeApp: App {
                     if phase == .background {
                         AppDelegate.scheduleBackgroundRefresh()
                     }
+                    // Poll immediately when the screen is unlocked or the app
+                    // comes to the foreground so the current song is always current.
+                    if phase == .active && auth.isAuthenticated {
+                        Task { await polling.forcePoll() }
+                    }
                 }
         }
     }

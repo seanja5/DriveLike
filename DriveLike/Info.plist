@@ -30,10 +30,12 @@
   </array>
   <key>NSLocationWhenInUseUsageDescription</key>
   <string>DriveLike records where you are when you like a song so it can label your drive sessions (e.g. "Home → Work").</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>DriveLike keeps running in the background while you drive so the lock-screen heart button always works.</string>
   <key>NSSupportsLiveActivities</key>
   <true/>
   <key>NSSupportsLiveActivitiesFrequentUpdates</key>
-  <false/>
+  <true/>
   <key>UILaunchScreen</key>
   <dict/>
   <key>UISupportedInterfaceOrientations</key>
@@ -43,6 +45,7 @@
   <key>UIBackgroundModes</key>
   <array>
     <string>fetch</string>
+    <string>location</string>
   </array>
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>

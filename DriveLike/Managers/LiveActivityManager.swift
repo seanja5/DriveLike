@@ -13,11 +13,16 @@ final class LiveActivityManager {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         guard !speedGated else { return }
 
-        // End any orphaned activities left over from a previous app session.
+        // End any orphaned activities left over from a previous session.
         for orphan in Activity<DriveLikeActivityAttributes>.activities {
             await orphan.end(dismissalPolicy: .immediate)
         }
         activity = nil
+
+        // Give ActivityKit a moment to process the terminations before requesting
+        // a new activity — avoids a silent failure when the widget process just
+        // ended the previous activity a fraction of a second ago.
+        try? await Task.sleep(nanoseconds: 300_000_000)
 
         let state = DriveLikeActivityAttributes.ContentState(
             trackName: track.name,
@@ -25,15 +30,23 @@ final class LiveActivityManager {
             trackId: track.id,
             isLiked: isLiked
         )
-        do {
-            activity = try Activity<DriveLikeActivityAttributes>.request(
-                attributes: DriveLikeActivityAttributes(),
-                contentState: state,
-                pushType: nil
-            )
-            observeActivityState()
-        } catch {
-            print("[LiveActivity] Start error: \(error)")
+        // Try up to twice — the first attempt occasionally fails right after the
+        // widget extension ends the previous activity.
+        for attempt in 1...2 {
+            do {
+                activity = try Activity<DriveLikeActivityAttributes>.request(
+                    attributes: DriveLikeActivityAttributes(),
+                    contentState: state,
+                    pushType: nil
+                )
+                observeActivityState()
+                break
+            } catch {
+                print("[LiveActivity] Start attempt \(attempt) failed: \(error)")
+                if attempt == 1 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+            }
         }
     }
 
@@ -44,12 +57,11 @@ final class LiveActivityManager {
         Task { [weak self] in
             for await state in a.activityStateUpdates {
                 guard state == .ended else { continue }
-                // Popup dismissed after heart fill — poll immediately then switch
-                // to 2-second intervals so the next song's popup appears fast.
+                // Popup dismissed after heart fill — immediately check for the next
+                // song so its popup can appear without waiting for the next timer tick.
                 await PlaybackPollingManager.shared.forcePoll()
-                PlaybackPollingManager.shared.enterRapidPollMode()
             }
-            _ = self  // silence weak-capture warning
+            _ = self
         }
     }
 

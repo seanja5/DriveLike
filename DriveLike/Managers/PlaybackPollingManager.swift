@@ -30,7 +30,7 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
     func start() {
         guard timer == nil else { return }
         setupLocation()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.poll() }
         }
         Task { @MainActor in
@@ -63,22 +63,6 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         await poll()
     }
 
-    // Switch to 2-second polling for 12 seconds so the next song's popup
-    // appears within ~2 seconds of tapping "next" after liking a track.
-    func enterRapidPollMode() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.poll() }
-        }
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 12_000_000_000)
-            guard let self, self.timer?.timeInterval == 2 else { return }
-            self.timer?.invalidate()
-            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-                Task { @MainActor in await self?.poll() }
-            }
-        }
-    }
 
     func fetchRecommendations() async {
         guard !likedTracks.isEmpty else { return }
@@ -96,7 +80,12 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         let lm = CLLocationManager()
         lm.delegate = self
         lm.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        lm.distanceFilter = 20
+        // Fire on every update (no minimum distance) so the app gets continuous
+        // background execution time — this is what keeps the polling timer alive
+        // while the phone is locked during a drive.
+        lm.distanceFilter = kCLDistanceFilterNone
+        lm.allowsBackgroundLocationUpdates = true
+        lm.pausesLocationUpdatesAutomatically = false
         locationManager = lm
         lm.requestWhenInUseAuthorization()
         lm.startUpdatingLocation()
