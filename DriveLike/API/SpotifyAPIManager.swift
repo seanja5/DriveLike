@@ -32,7 +32,8 @@ final class SpotifyAPIManager {
         return SpotifyTrack(
             id: item.id,
             name: item.name,
-            artistName: item.artists.first?.name ?? "Unknown Artist"
+            artistName: item.artists.first?.name ?? "Unknown Artist",
+            albumArtURL: item.album?.images.first?.url ?? ""
         )
     }
 
@@ -158,9 +159,11 @@ final class SpotifyAPIManager {
         guard let token else { throw SpotifyAPIError.noToken }
 
         struct SArtist: Decodable { let name: String }
-        struct SItem: Decodable { let id: String; let name: String; let artists: [SArtist] }
-        struct SPage: Decodable { let items: [SItem] }
-        struct SRoot: Decodable { let tracks: SPage }
+        struct SImage:  Decodable { let url: String }
+        struct SAlbum:  Decodable { let images: [SImage] }
+        struct SItem:   Decodable { let id: String; let name: String; let artists: [SArtist]; let album: SAlbum? }
+        struct SPage:   Decodable { let items: [SItem] }
+        struct SRoot:   Decodable { let tracks: SPage }
 
         var results: [SpotifyTrack] = []
 
@@ -178,13 +181,14 @@ final class SpotifyAPIManager {
             guard let root = try? JSONDecoder().decode(SRoot.self, from: data) else { continue }
             let tracks = root.tracks.items
                 .filter { !excludeIds.contains($0.id) }
-                .map { SpotifyTrack(id: $0.id, name: $0.name, artistName: $0.artists.first?.name ?? "") }
+                .map { SpotifyTrack(id: $0.id, name: $0.name, artistName: $0.artists.first?.name ?? "",
+                                    albumArtURL: $0.album?.images.first?.url ?? "") }
             results.append(contentsOf: tracks)
         }
 
-        // Deduplicate while preserving order
+        // Deduplicate while preserving order, limit to 10
         var seen = Set<String>()
-        return results.filter { seen.insert($0.id).inserted }.prefix(20).map { $0 }
+        return results.filter { seen.insert($0.id).inserted }.prefix(10).map { $0 }
     }
 
     // MARK: - Like Track (requires user-library-modify — blocked in dev mode, kept for future)

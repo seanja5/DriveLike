@@ -115,7 +115,11 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
 
                 if currentTrack?.id != track.id {
                     if currentTrack != nil { await live.end() }
-                    await live.start(track: track, isLiked: isLiked, speedGated: speedGateBlocks)
+                    // Don't restart the popup for tracks the user already liked —
+                    // the activity was dismissed after heart fill and shouldn't come back.
+                    if !isLiked {
+                        await live.start(track: track, isLiked: false, speedGated: speedGateBlocks)
+                    }
                     currentTrack = track
                 } else {
                     await live.syncLikedState(trackId: track.id, isLiked: isLiked)

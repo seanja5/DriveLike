@@ -4,6 +4,14 @@ struct SpotifyTrack: Codable, Equatable {
     let id: String
     let name: String
     let artistName: String
+    var albumArtURL: String
+
+    init(id: String, name: String, artistName: String, albumArtURL: String = "") {
+        self.id = id
+        self.name = name
+        self.artistName = artistName
+        self.albumArtURL = albumArtURL
+    }
 }
 
 struct PlayerState: Decodable {
@@ -15,6 +23,15 @@ struct TrackItem: Decodable {
     let id: String
     let name: String
     let artists: [SpotifyArtist]
+    let album: TrackAlbum?
+}
+
+struct TrackAlbum: Decodable {
+    let images: [TrackAlbumImage]
+}
+
+struct TrackAlbumImage: Decodable {
+    let url: String
 }
 
 struct SpotifyArtist: Decodable {

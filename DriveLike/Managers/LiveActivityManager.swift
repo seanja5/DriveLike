@@ -11,11 +11,9 @@ final class LiveActivityManager {
 
     func start(track: SpotifyTrack, isLiked: Bool = false, speedGated: Bool = false) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        guard !speedGated else { return }  // speed gating: skip if not at driving speed
+        guard !speedGated else { return }
 
         // End any orphaned activities left over from a previous app session.
-        // Without this, Activity.request() fails silently and the old dead
-        // activity stays on the lock screen with a non-functional heart button.
         for orphan in Activity<DriveLikeActivityAttributes>.activities {
             await orphan.end(dismissalPolicy: .immediate)
         }
@@ -33,13 +31,29 @@ final class LiveActivityManager {
                 contentState: state,
                 pushType: nil
             )
+            observeActivityState()
         } catch {
             print("[LiveActivity] Start error: \(error)")
         }
     }
 
-    // Called by the polling loop to sync the liked state that the widget intent wrote
-    // to shared UserDefaults. Only issues an update when the state actually changed.
+    // Watch for the activity ending (programmatically, after heart fill) and
+    // immediately poll so the next-song popup appears without waiting 5 seconds.
+    private func observeActivityState() {
+        guard let a = activity else { return }
+        Task { [weak self] in
+            for await state in a.activityStateUpdates {
+                if state == .ended {
+                    await PlaybackPollingManager.shared.forcePoll()
+                }
+                // .dismissed = user swiped away manually — don't restart
+            }
+        }
+    }
+
+    // Called by the polling loop. If the heart just flipped to filled, mirror
+    // the same 1-second dismiss that the widget intent does (handles the edge
+    // case where the poll races ahead of the intent's optimistic update).
     func syncLikedState(trackId: String, isLiked: Bool) async {
         guard let a = activity,
               a.contentState.trackId == trackId,
@@ -55,6 +69,12 @@ final class LiveActivityManager {
             ),
             staleDate: nil
         ))
+        if isLiked {
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await self?.end()
+            }
+        }
     }
 
     func end() async {

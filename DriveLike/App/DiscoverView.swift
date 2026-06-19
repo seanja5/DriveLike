@@ -144,7 +144,7 @@ struct DiscoverView: View {
 
     private var recommendationList: some View {
         VStack(spacing: 6) {
-            ForEach(Array(polling.recommendations.enumerated()), id: \.element.id) { idx, track in
+            ForEach(Array(polling.recommendations.prefix(10).enumerated()), id: \.element.id) { idx, track in
                 RecommendationRow(track: track, index: idx, openURL: openURL)
             }
         }
@@ -166,17 +166,24 @@ private struct RecommendationRow: View {
                 openURL(url)
             }
         } label: {
-            HStack(spacing: 14) {
-                // Index
-                Text("\(index + 1)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.textMuted.opacity(0.45))
-                    .frame(width: 22, alignment: .trailing)
-
-                // Sparkle indicator (shows these are recommendations)
-                Image(systemName: "sparkle")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color(hue: 0.75, saturation: 0.6, brightness: 0.8))
+            HStack(spacing: 12) {
+                // Album art
+                Group {
+                    if let url = URL(string: track.albumArtURL), !track.albumArtURL.isEmpty {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().scaledToFill()
+                            default:
+                                albumArtPlaceholder
+                            }
+                        }
+                    } else {
+                        albumArtPlaceholder
+                    }
+                }
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(track.name)
@@ -201,8 +208,8 @@ private struct RecommendationRow: View {
                             .overlay(Circle().strokeBorder(Color.accent.opacity(0.2), lineWidth: 1))
                     )
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color.surface)
@@ -216,6 +223,16 @@ private struct RecommendationRow: View {
         .onAppear { appear = true }
         .accessibilityLabel("Open \(track.name) by \(track.artistName) in Spotify")
     }
+
+    private var albumArtPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.white.opacity(0.06))
+            .overlay(
+                Image(systemName: "music.note")
+                    .font(.system(size: 16, weight: .light))
+                    .foregroundStyle(Color.textMuted.opacity(0.4))
+            )
+    }
 }
 
 // MARK: - Shimmer loading row
@@ -224,10 +241,10 @@ private struct ShimmerRow: View {
     @State private var phase: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.white.opacity(0.06))
-                .frame(width: 22, height: 10)
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white.opacity(0.07))
+                .frame(width: 48, height: 48)
             VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.white.opacity(0.08))
@@ -238,8 +255,8 @@ private struct ShimmerRow: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.surface)

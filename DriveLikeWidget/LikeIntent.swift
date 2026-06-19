@@ -25,6 +25,18 @@ struct LikeTrackIntent: LiveActivityIntent {
         SharedStore.appendDebugLog("Track: '\(trackName)' by \(artistName)")
         SharedStore.appendDebugLog("TrackID: \(trackId)")
 
+        // Optimistic fill: update the heart immediately so the user sees instant feedback
+        // before any network call completes.
+        for act in Activity<DriveLikeActivityAttributes>.activities
+                where act.contentState.trackId == trackId {
+            let s = act.contentState
+            await act.update(ActivityContent(
+                state: DriveLikeActivityAttributes.ContentState(
+                    trackName: s.trackName, artistName: s.artistName,
+                    trackId: s.trackId, isLiked: true),
+                staleDate: nil))
+        }
+
         guard !trackId.isEmpty else {
             SharedStore.appendDebugLog("ABORT: trackId is empty")
             return .result()
@@ -96,6 +108,19 @@ struct LikeTrackIntent: LiveActivityIntent {
         }
         SharedStore.appendDebugLog(heartFilled ? "Heart filled in Live Activity" : "WARNING: No Live Activity found to fill heart")
         SharedStore.appendDebugLog("--- DONE ---")
+
+        // Dismiss the popup 1 second after the heart fills so the user gets clear
+        // confirmation and the widget gets out of the way for the next song.
+        let dismissId = trackId
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            for act in Activity<DriveLikeActivityAttributes>.activities
+                    where act.contentState.trackId == dismissId {
+                await act.end(
+                    ActivityContent(state: act.contentState, staleDate: nil),
+                    dismissalPolicy: .immediate)
+            }
+        }
 
         return .result()
     }
