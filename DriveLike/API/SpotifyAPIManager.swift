@@ -101,6 +101,65 @@ final class SpotifyAPIManager {
         }
     }
 
+    // MARK: - Track Details (album art, album name, duration)
+
+    func getTrackDetails(id: String) async throws -> TrackDetails {
+        guard let token else { throw SpotifyAPIError.noToken }
+        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/tracks/\(id)")!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as! HTTPURLResponse).statusCode == 200 else {
+            throw SpotifyAPIError.http((resp as! HTTPURLResponse).statusCode)
+        }
+        struct Image: Decodable { let url: String }
+        struct Album: Decodable { let name: String; let images: [Image] }
+        struct Track: Decodable { let album: Album; let duration_ms: Int }
+        let track = try JSONDecoder().decode(Track.self, from: data)
+        return TrackDetails(
+            albumName:   track.album.name,
+            albumArtURL: track.album.images.first?.url ?? "",
+            durationMs:  track.duration_ms
+        )
+    }
+
+    // MARK: - Audio Features (BPM, energy, valence)
+
+    func getAudioFeatures(id: String) async throws -> AudioFeatures {
+        guard let token else { throw SpotifyAPIError.noToken }
+        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/audio-features/\(id)")!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as! HTTPURLResponse).statusCode == 200 else {
+            throw SpotifyAPIError.http((resp as! HTTPURLResponse).statusCode)
+        }
+        struct Raw: Decodable { let tempo: Double; let energy: Double; let valence: Double }
+        let raw = try JSONDecoder().decode(Raw.self, from: data)
+        return AudioFeatures(tempo: raw.tempo, energy: raw.energy, valence: raw.valence)
+    }
+
+    // MARK: - Recommendations (seeded from liked driving tracks)
+
+    func getRecommendations(seedTrackIds: [String]) async throws -> [SpotifyTrack] {
+        guard let token else { throw SpotifyAPIError.noToken }
+        let seeds = seedTrackIds.prefix(5).joined(separator: ",")
+        var comps = URLComponents(string: "https://api.spotify.com/v1/recommendations")!
+        comps.queryItems = [
+            .init(name: "seed_tracks", value: seeds),
+            .init(name: "limit", value: "20")
+        ]
+        var req = URLRequest(url: comps.url!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as! HTTPURLResponse).statusCode == 200 else {
+            throw SpotifyAPIError.http((resp as! HTTPURLResponse).statusCode)
+        }
+        struct Artist: Decodable { let name: String }
+        struct Item:   Decodable { let id: String; let name: String; let artists: [Artist] }
+        struct Page:   Decodable { let tracks: [Item] }
+        let page = try JSONDecoder().decode(Page.self, from: data)
+        return page.tracks.map { SpotifyTrack(id: $0.id, name: $0.name, artistName: $0.artists.first?.name ?? "") }
+    }
+
     // MARK: - Like Track (requires user-library-modify — blocked in dev mode, kept for future)
 
     func likeTrack(id: String) async throws {

@@ -20,3 +20,6 @@ struct TrackItem: Decodable {
 struct SpotifyArtist: Decodable {
     let name: String
 }
+
+// TrackDetails and AudioFeatures are defined in Shared/SharedStore.swift
+// (must be in the Shared target so the widget extension can also reference them)

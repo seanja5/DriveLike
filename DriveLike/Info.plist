@@ -28,6 +28,8 @@
       </array>
     </dict>
   </array>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>DriveLike records where you are when you like a song so it can label your drive sessions (e.g. "Home → Work").</string>
   <key>NSSupportsLiveActivities</key>
   <true/>
   <key>NSSupportsLiveActivitiesFrequentUpdates</key>

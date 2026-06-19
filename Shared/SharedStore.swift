@@ -1,11 +1,44 @@
 import Foundation
 
+// MARK: - Shared metadata models (used by both app and widget targets)
+
+struct TrackDetails: Codable {
+    let albumName: String
+    let albumArtURL: String
+    let durationMs: Int
+}
+
+struct AudioFeatures: Codable {
+    let tempo: Double    // BPM
+    let energy: Double   // 0–1
+    let valence: Double  // 0–1, sad → happy
+}
+
 struct LikedTrack: Codable, Identifiable {
     var id: String { trackId }
     let trackId: String
     let trackName: String
     let artistName: String
     let likedAt: Date
+    let latitude: Double?   // captured from SharedStore at heart-tap time
+    let longitude: Double?
+
+    // Backward-compatible init for callers that don't supply location
+    init(trackId: String, trackName: String, artistName: String, likedAt: Date,
+         latitude: Double? = nil, longitude: Double? = nil) {
+        self.trackId    = trackId
+        self.trackName  = trackName
+        self.artistName = artistName
+        self.likedAt    = likedAt
+        self.latitude   = latitude
+        self.longitude  = longitude
+    }
+}
+
+struct StoredLocation: Codable {
+    let lat: Double
+    let lon: Double
+    let timestamp: Date
 }
 
 struct TokenCache: Codable {
@@ -170,6 +203,57 @@ enum SharedStore {
     static func clearDebugLog() {
         guard let url = containerURL?.appendingPathComponent("debug_log.txt") else { return }
         try? FileManager.default.removeItem(at: url)
+    }
+
+    // MARK: - Current Location (written by main app every poll, read by widget intent)
+
+    static func writeCurrentLocation(_ loc: StoredLocation) {
+        guard let url = containerURL?.appendingPathComponent("current_location.json"),
+              let data = try? JSONEncoder().encode(loc)
+        else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    static func readCurrentLocation() -> StoredLocation? {
+        guard let url = containerURL?.appendingPathComponent("current_location.json"),
+              let data = try? Data(contentsOf: url),
+              let loc  = try? JSONDecoder().decode(StoredLocation.self, from: data)
+        else { return nil }
+        return loc
+    }
+
+    // MARK: - Track Details Cache (keyed by trackId, persisted indefinitely)
+
+    static func readTrackDetailsCache() -> [String: TrackDetails] {
+        guard let url  = containerURL?.appendingPathComponent("track_cache.json"),
+              let data = try? Data(contentsOf: url),
+              let dict = try? JSONDecoder().decode([String: TrackDetails].self, from: data)
+        else { return [:] }
+        return dict
+    }
+
+    static func writeTrackDetailsCache(_ dict: [String: TrackDetails]) {
+        guard let url  = containerURL?.appendingPathComponent("track_cache.json"),
+              let data = try? JSONEncoder().encode(dict)
+        else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    // MARK: - Audio Features Cache (keyed by trackId, persisted indefinitely)
+
+    static func readAudioFeaturesCache() -> [String: AudioFeatures] {
+        guard let url  = containerURL?.appendingPathComponent("audio_features_cache.json"),
+              let data = try? Data(contentsOf: url),
+              let dict = try? JSONDecoder().decode([String: AudioFeatures].self, from: data)
+        else { return [:] }
+        return dict
+    }
+
+    static func writeAudioFeaturesCache(_ dict: [String: AudioFeatures]) {
+        guard let url  = containerURL?.appendingPathComponent("audio_features_cache.json"),
+              let data = try? JSONEncoder().encode(dict)
+        else { return }
+        try? data.write(to: url, options: .atomic)
     }
 
     // MARK: - Reauth flag

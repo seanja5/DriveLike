@@ -1,16 +1,50 @@
 import SwiftUI
 
-// MARK: - Design Tokens
+// MARK: - Design Tokens (shared across all tabs via private extension)
 
-private extension Color {
-    static let bgDeep    = Color(red: 0.031, green: 0.031, blue: 0.039)
-    static let bgBase    = Color(red: 0.050, green: 0.050, blue: 0.063)
-    static let surface   = Color.white.opacity(0.055)
-    static let border    = Color.white.opacity(0.09)
-    static let textPrim  = Color(red: 0.93, green: 0.93, blue: 0.94)
-    static let textMuted = Color(red: 0.54, green: 0.56, blue: 0.60)
-    static let accent    = Color(red: 0.114, green: 0.729, blue: 0.333)  // Spotify green
+extension Color {
+    static let bgDeep     = Color(red: 0.031, green: 0.031, blue: 0.039)
+    static let bgBase     = Color(red: 0.050, green: 0.050, blue: 0.063)
+    static let surface    = Color.white.opacity(0.055)
+    static let border     = Color.white.opacity(0.09)
+    static let textPrim   = Color(red: 0.93, green: 0.93, blue: 0.94)
+    static let textMuted  = Color(red: 0.54, green: 0.56, blue: 0.60)
+    static let accent     = Color(red: 0.114, green: 0.729, blue: 0.333)
     static let accentTeal = Color(red: 0.05, green: 0.85, blue: 0.65)
+}
+
+// MARK: - Tab Definition
+
+enum AppTab: String, CaseIterable, Identifiable {
+    case now, drives, discover, settings
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .now:      return "Now"
+        case .drives:   return "Drives"
+        case .discover: return "Discover"
+        case .settings: return "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .now:      return "waveform"
+        case .drives:   return "car"
+        case .discover: return "sparkles"
+        case .settings: return "gearshape"
+        }
+    }
+
+    var activeIcon: String {
+        switch self {
+        case .now:      return "waveform"
+        case .drives:   return "car.fill"
+        case .discover: return "sparkles"
+        case .settings: return "gearshape.fill"
+        }
+    }
 }
 
 // MARK: - Root View
@@ -18,6 +52,7 @@ private extension Color {
 struct ContentView: View {
     @EnvironmentObject var auth: SpotifyAuthManager
     @EnvironmentObject var polling: PlaybackPollingManager
+    @State private var selectedTab: AppTab = .now
 
     var body: some View {
         ZStack {
@@ -29,7 +64,22 @@ struct ContentView: View {
             .ignoresSafeArea()
 
             if auth.isAuthenticated {
-                ConnectedView()
+                ZStack(alignment: .bottom) {
+                    // Tab content
+                    Group {
+                        switch selectedTab {
+                        case .now:      NowPlayingTab()
+                        case .drives:   DrivesView()
+                        case .discover: DiscoverView()
+                        case .settings: SettingsView()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Custom glass tab bar
+                    CustomTabBar(selectedTab: $selectedTab)
+                }
+                .ignoresSafeArea(.keyboard)
             } else {
                 WelcomeView()
             }
@@ -38,9 +88,60 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Custom Tab Bar
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: AppTab
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(AppTab.allCases) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: selectedTab == tab ? tab.activeIcon : tab.icon)
+                            .font(.system(size: 20, weight: selectedTab == tab ? .semibold : .regular))
+                            .foregroundStyle(selectedTab == tab ? Color.accent : Color.textMuted)
+                            .scaleEffect(selectedTab == tab ? 1.05 : 1.0)
+
+                        Text(tab.label)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(selectedTab == tab ? Color.accent : Color.textMuted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityLabel(tab.label)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Rectangle()
+                        .fill(Color.white.opacity(0.04))
+                )
+                .overlay(
+                    Rectangle()
+                        .fill(Color.border)
+                        .frame(height: 1),
+                    alignment: .top
+                )
+                .ignoresSafeArea()
+        )
+    }
+}
+
 // MARK: - Welcome (unauthenticated)
 
-private struct WelcomeView: View {
+struct WelcomeView: View {
     @EnvironmentObject var auth: SpotifyAuthManager
     @State private var glowOn = false
 
@@ -52,7 +153,6 @@ private struct WelcomeView: View {
                 Spacer()
 
                 VStack(spacing: 28) {
-                    // Logo mark
                     ZStack {
                         Circle()
                             .fill(Color.accent.opacity(0.15))
@@ -126,9 +226,9 @@ private struct WelcomeView: View {
     }
 }
 
-// MARK: - Ambient Background
+// MARK: - Ambient Background (shared by all tabs)
 
-private struct AmbientBackground: View {
+struct AmbientBackground: View {
     var accentHue: Double = 0.38
     var accentX: Double = 0.6
     var accentY: Double = 0.2
@@ -138,33 +238,25 @@ private struct AmbientBackground: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Green blob
                 Circle()
-                    .fill(Color.accent.opacity(0.13))
+                    .fill(Color.accent.opacity(0.11))
                     .frame(width: 280, height: 280)
                     .blur(radius: 70)
                     .offset(
                         x: geo.size.width * (accentX - 0.5) + (driftA ? 28 : -28),
                         y: geo.size.height * (accentY - 0.5) + (driftA ? -18 : 18)
                     )
-                    .animation(
-                        .easeInOut(duration: 7).repeatForever(autoreverses: true),
-                        value: driftA
-                    )
+                    .animation(.easeInOut(duration: 7).repeatForever(autoreverses: true), value: driftA)
 
-                // Purple blob
                 Circle()
-                    .fill(Color(hue: 0.75, saturation: 0.6, brightness: 0.6).opacity(0.09))
+                    .fill(Color(hue: 0.75, saturation: 0.6, brightness: 0.6).opacity(0.08))
                     .frame(width: 240, height: 240)
                     .blur(radius: 80)
                     .offset(
                         x: geo.size.width * -0.25 + (driftB ? -24 : 24),
                         y: geo.size.height * 0.25 + (driftB ? 32 : -32)
                     )
-                    .animation(
-                        .easeInOut(duration: 9).repeatForever(autoreverses: true).delay(1.5),
-                        value: driftB
-                    )
+                    .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true).delay(1.5), value: driftB)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -173,12 +265,11 @@ private struct AmbientBackground: View {
     }
 }
 
-// MARK: - Connected
+// MARK: - Now Playing Tab
 
-private struct ConnectedView: View {
+private struct NowPlayingTab: View {
     @EnvironmentObject var auth: SpotifyAuthManager
     @EnvironmentObject var polling: PlaybackPollingManager
-    @Environment(\.openURL) var openURL
     @State private var isRefreshing = false
 
     var body: some View {
@@ -188,29 +279,14 @@ private struct ConnectedView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Top bar
-                    HStack(alignment: .center) {
+                    HStack {
                         LivePill()
                         Spacer()
-                        Button {
-                            auth.logout()
-                        } label: {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 17, weight: .regular))
-                                .foregroundStyle(Color.textMuted)
-                                .frame(width: 44, height: 44)
-                                .background(
-                                    Circle()
-                                        .fill(Color.surface)
-                                        .overlay(Circle().strokeBorder(Color.border, lineWidth: 1))
-                                )
-                        }
-                        .buttonStyle(PressScaleStyle())
-                        .accessibilityLabel("Disconnect Spotify")
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 60)
+                    .padding(.bottom, 8)
 
-                    // Now playing card
                     Group {
                         if let track = polling.currentTrack {
                             NowPlayingCard(track: track)
@@ -256,15 +332,8 @@ private struct ConnectedView: View {
                     .buttonStyle(PressScaleStyle())
                     .disabled(isRefreshing)
                     .padding(.top, 18)
-                    .accessibilityLabel(isRefreshing ? "Checking for playing track" : "Refresh currently playing")
 
-                    // Liked tracks
-                    if !polling.likedTracks.isEmpty {
-                        LikedTracksSection(tracks: polling.likedTracks, openURL: openURL)
-                            .padding(.top, 40)
-                    }
-
-                    Spacer().frame(height: 60)
+                    Spacer().frame(height: 100)
                 }
             }
         }
@@ -288,10 +357,7 @@ private struct LivePill: View {
                     .fill(Color.accent)
                     .frame(width: 7, height: 7)
             }
-            .animation(
-                .easeOut(duration: 1.4).repeatForever(autoreverses: false),
-                value: pulse
-            )
+            .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: pulse)
 
             Text("Live")
                 .font(.system(size: 12, weight: .semibold))
@@ -316,7 +382,6 @@ private struct NowPlayingCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Waveform area
             ZStack {
                 Ellipse()
                     .fill(Color.accent.opacity(0.18))
@@ -332,14 +397,12 @@ private struct NowPlayingCard: View {
             .padding(.top, 32)
             .padding(.bottom, 8)
 
-            // Divider
             Rectangle()
                 .fill(Color.border)
                 .frame(height: 1)
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-            // Track info
             VStack(spacing: 5) {
                 Text(track.name)
                     .font(.system(size: 19, weight: .semibold, design: .rounded))
@@ -358,10 +421,7 @@ private struct NowPlayingCard: View {
         .background(
             RoundedRectangle(cornerRadius: 26)
                 .fill(Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26)
-                        .strokeBorder(Color.border, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Color.border, lineWidth: 1))
         )
         .shadow(color: .black.opacity(0.35), radius: 28, y: 14)
         .opacity(appear ? 1 : 0)
@@ -375,7 +435,7 @@ private struct NowPlayingCard: View {
 
 // MARK: - Organic Waveform
 
-private struct OrganicWaveform: View {
+struct OrganicWaveform: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     private let barCount = 30
 
@@ -404,7 +464,6 @@ private struct OrganicWaveform: View {
     }
 
     private func drawBars(in ctx: GraphicsContext, size: CGSize, t: Double) {
-        let barCount = self.barCount
         let barW: CGFloat = 4
         let gap: CGFloat  = 3
         let totalW = CGFloat(barCount) * (barW + gap) - gap
@@ -431,18 +490,11 @@ private struct OrganicWaveform: View {
 
     private func barHeight(index: Int, total: Int, t: Double) -> CGFloat {
         let x  = Double(index) / Double(total)
-
-        // Three overlapping sine waves at musical interval ratios
         let w1 = sin(x * .pi * 3.0 + t * 2.3)  * 0.42
         let w2 = sin(x * .pi * 7.0 + t * 3.9)  * 0.22
         let w3 = sin(x * .pi * 11.5 + t * 5.1) * 0.12
-
-        // Slow envelope (wide arch across bars)
         let env = (sin(x * .pi) + 1) / 2
-
-        // Beat transient — periodic kick every ~0.55s
         let beat = max(0, sin(t * .pi / 0.55)) * 0.28
-
         let raw = (w1 + w2 + w3) * env + beat
         return CGFloat(10 + (raw + 1) / 2 * 76)
     }
@@ -463,7 +515,6 @@ private struct IdleCard: View {
                     .font(.system(size: 30, weight: .thin))
                     .foregroundStyle(Color.textMuted.opacity(0.7))
             }
-
             VStack(spacing: 7) {
                 Text("Nothing playing")
                     .font(.system(size: 17, weight: .semibold))
@@ -489,129 +540,12 @@ private struct IdleCard: View {
     }
 }
 
-// MARK: - Liked Tracks Section
-
-private struct LikedTracksSection: View {
-    let tracks: [LikedTrack]
-    let openURL: OpenURLAction
-    @State private var appear = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Header
-            HStack(spacing: 8) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.accent)
-                Text("LIKED WHILE DRIVING")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.textMuted)
-                    .tracking(1.4)
-                Spacer()
-                Text("\(tracks.count)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.textMuted.opacity(0.7))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(Color.surface)
-                            .overlay(Capsule().strokeBorder(Color.border, lineWidth: 1))
-                    )
-            }
-            .padding(.horizontal, 24)
-
-            // Rows
-            VStack(spacing: 6) {
-                ForEach(Array(tracks.reversed().prefix(50).enumerated()), id: \.element.id) { idx, track in
-                    LikedTrackRow(track: track, index: idx, openURL: openURL)
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 10)
-        .animation(.spring(dampingFraction: 0.85).delay(0.08), value: appear)
-        .onAppear { appear = true }
-    }
-}
-
-private struct LikedTrackRow: View {
-    let track: LikedTrack
-    let index: Int
-    let openURL: OpenURLAction
-    @State private var appear = false
-
-    var body: some View {
-        Button {
-            if let url = URL(string: "spotify://track/\(track.trackId)") {
-                openURL(url)
-            }
-        } label: {
-            HStack(spacing: 14) {
-                // Row number
-                Text("\(index + 1)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.textMuted.opacity(0.45))
-                    .frame(width: 22, alignment: .trailing)
-
-                // Track info
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(track.trackName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.textPrim)
-                        .lineLimit(1)
-                    Text(track.artistName)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.textMuted)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 8)
-
-                // Open in Spotify arrow
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.accent)
-                    .frame(width: 30, height: 30)
-                    .background(
-                        Circle()
-                            .fill(Color.accent.opacity(0.12))
-                            .overlay(Circle().strokeBorder(Color.accent.opacity(0.2), lineWidth: 1))
-                    )
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .strokeBorder(Color.border, lineWidth: 1)
-                    )
-            )
-        }
-        .buttonStyle(PressScaleStyle())
-        .opacity(appear ? 1 : 0)
-        .offset(y: appear ? 0 : 5)
-        .animation(
-            .spring(dampingFraction: 0.82).delay(Double(index) * 0.035),
-            value: appear
-        )
-        .onAppear { appear = true }
-        .accessibilityLabel("Open \(track.trackName) by \(track.artistName) in Spotify")
-    }
-}
-
-// MARK: - Press Scale Button Style
+// MARK: - Press Scale Button Style (shared globally)
 
 struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.955 : 1.0)
-            .animation(
-                .spring(response: 0.25, dampingFraction: 0.65),
-                value: configuration.isPressed
-            )
+            .animation(.spring(response: 0.25, dampingFraction: 0.65), value: configuration.isPressed)
     }
 }

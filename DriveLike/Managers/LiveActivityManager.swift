@@ -9,8 +9,9 @@ final class LiveActivityManager {
 
     // MARK: - Public
 
-    func start(track: SpotifyTrack, isLiked: Bool = false) async {
+    func start(track: SpotifyTrack, isLiked: Bool = false, speedGated: Bool = false) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard !speedGated else { return }  // speed gating: skip if not at driving speed
 
         // End any orphaned activities left over from a previous app session.
         // Without this, Activity.request() fails silently and the old dead

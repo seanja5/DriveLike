@@ -65,11 +65,15 @@ struct LikeTrackIntent: LiveActivityIntent {
         let added = await addTrackToPlaylist(trackId: trackId, playlistId: playlistId, token: token)
         SharedStore.appendDebugLog(added ? "SUCCESS: Track added to playlist!" : "FAILED: addTrack call failed (see HTTP error above)")
 
+        // Attach last-known location (written by main app every 5 s)
+        let loc = SharedStore.readCurrentLocation()
         SharedStore.appendLikedTrack(LikedTrack(
             trackId:    trackId,
             trackName:  trackName,
             artistName: artistName,
-            likedAt:    Date()
+            likedAt:    Date(),
+            latitude:   loc?.lat,
+            longitude:  loc?.lon
         ))
         SharedStore.addLikedId(trackId)
 
