@@ -25,15 +25,21 @@ func buildSessions(from tracks: [LikedTrack]) -> [DriveSession] {
 
 struct DrivesView: View {
     @EnvironmentObject var polling: PlaybackPollingManager
+    @EnvironmentObject var auth: SpotifyAuthManager
     @Environment(\.openURL) var openURL
 
     @State private var sessionLocations: [UUID: String] = [:]
     @State private var audioFeatures: [String: AudioFeatures] = [:]
     @State private var trackDetails: [String: TrackDetails] = [:]
     @State private var selectedTrack: LikedTrack? = nil
+    @State private var showFullMap = false
     @State private var appear = false
 
     private let api = SpotifyAPIManager.shared
+
+    var tracksWithLocation: [LikedTrack] {
+        polling.likedTracks.filter { $0.latitude != nil && $0.longitude != nil }
+    }
 
     var sessions: [DriveSession] {
         buildSessions(from: polling.likedTracks)
@@ -45,6 +51,12 @@ struct DrivesView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
+                    // Map preview card
+                    MapPreviewCard(tracks: tracksWithLocation) { showFullMap = true }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 60)
+                        .padding(.bottom, 20)
+
                     // Page header
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -58,7 +70,7 @@ struct DrivesView: View {
                         Spacer()
                     }
                     .padding(.horizontal, 24)
-                    .padding(.top, 60)
+                    .padding(.top, 8)
                     .padding(.bottom, 24)
 
                     if polling.likedTracks.isEmpty {
@@ -85,6 +97,9 @@ struct DrivesView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $showFullMap) {
+            DriveMapView(tracks: tracksWithLocation, trackDetails: trackDetails)
+        }
         .sheet(item: $selectedTrack) { track in
             TrackDetailSheet(
                 track: track,
@@ -102,6 +117,22 @@ struct DrivesView: View {
             trackDetails  = SharedStore.readTrackDetailsCache()
             appear = true
             fetchMissingFeatures()
+            // Pull caches from Supabase if local is empty (e.g. after reinstall)
+            Task {
+                guard let userId = auth.spotifyUserId, !userId.isEmpty else { return }
+                if trackDetails.isEmpty,
+                   let remote = try? await SupabaseManager.shared.fetchTrackDetailsCache(userId: userId),
+                   !remote.isEmpty {
+                    trackDetails = remote
+                    SharedStore.writeTrackDetailsCache(remote)
+                }
+                if audioFeatures.isEmpty,
+                   let remote = try? await SupabaseManager.shared.fetchAudioFeaturesCache(userId: userId),
+                   !remote.isEmpty {
+                    audioFeatures = remote
+                    SharedStore.writeAudioFeaturesCache(remote)
+                }
+            }
         }
     }
 
@@ -212,6 +243,9 @@ struct DrivesView: View {
                     audioFeatures[track.trackId] = feat
                     SharedStore.writeAudioFeaturesCache(audioFeatures)
                 }
+                if let userId = auth.spotifyUserId {
+                    await SupabaseManager.shared.upsertAudioFeatures(feat, trackId: track.trackId, userId: userId)
+                }
             }
         }
     }
@@ -224,6 +258,9 @@ struct DrivesView: View {
                 trackDetails[track.trackId] = details
                 SharedStore.writeTrackDetailsCache(trackDetails)
             }
+            if let userId = auth.spotifyUserId {
+                await SupabaseManager.shared.upsertTrackDetails(details, trackId: track.trackId, userId: userId)
+            }
         }
     }
 
@@ -234,6 +271,9 @@ struct DrivesView: View {
             await MainActor.run {
                 audioFeatures[track.trackId] = feat
                 SharedStore.writeAudioFeaturesCache(audioFeatures)
+            }
+            if let userId = auth.spotifyUserId {
+                await SupabaseManager.shared.upsertAudioFeatures(feat, trackId: track.trackId, userId: userId)
             }
         }
     }

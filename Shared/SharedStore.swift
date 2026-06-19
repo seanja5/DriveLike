@@ -112,7 +112,11 @@ enum SharedStore {
         var tracks = readLikedTracks()
         guard !tracks.contains(where: { $0.trackId == track.trackId }) else { return }
         tracks.append(track)
-        guard let url = containerURL?.appendingPathComponent("liked_tracks.json"),
+        writeLikedTracks(tracks)
+    }
+
+    static func writeLikedTracks(_ tracks: [LikedTrack]) {
+        guard let url  = containerURL?.appendingPathComponent("liked_tracks.json"),
               let data = try? JSONEncoder().encode(tracks)
         else { return }
         try? data.write(to: url, options: .atomic)

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0413487CC1BC4CB318FB5E10 /* DriveLikeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F8B4D699D1A304C85101D676 /* DriveLikeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		05F7060AB487A16233F25B11 /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045C8DDB7B5D1F9D0A95337E /* MapView.swift */; };
 		0D5D6588878761D5523541C9 /* SpotifyAPIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */; };
 		11E0927A47FA77A0933BF04B /* SpotifyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6693AB9445052650BDB23B /* SpotifyModels.swift */; };
 		244D0D49BF4607614F295474 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD4FC28966377E3B8EB84B9 /* LiveActivityManager.swift */; };
@@ -15,6 +16,7 @@
 		271E0181690903CC9E6599B8 /* DriveLikeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4093064C4AA4878405AA0298 /* DriveLikeWidget.swift */; };
 		2AC42343E4C33B669E6F4F1A /* DriveLikeActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CBD1C00A7A62D702E2F8547 /* DriveLikeActivityAttributes.swift */; };
 		2EDB4A0B994F2A0CB3CC5E9D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F90849A10E85C71C0B4C1E /* SettingsView.swift */; };
+		32D41E45C7BF865440257D74 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37E8C9D7CED220F2DF071CC /* SupabaseManager.swift */; };
 		3BAB031597240E38550056C9 /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9309F5451A02BA4D0C7D7F0 /* DiscoverView.swift */; };
 		4DCB58620088D2AAF2460F49 /* PlaybackPollingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F720FDCE5CF993DE1D64C0B3 /* PlaybackPollingManager.swift */; };
 		75C7FF48CD1AC433C28D99EF /* LikeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC5AEA5B658674FE768A98C /* LikeIntent.swift */; };
@@ -54,6 +56,7 @@
 
 /* Begin PBXFileReference section */
 		020D0792862E504FB50B2D3B /* DrivesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivesView.swift; sourceTree = "<group>"; };
+		045C8DDB7B5D1F9D0A95337E /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
 		0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAPIManager.swift; sourceTree = "<group>"; };
 		09D78525CBB3BF44E1809E56 /* DriveLike.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DriveLike.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CC5AEA5B658674FE768A98C /* LikeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikeIntent.swift; sourceTree = "<group>"; };
@@ -71,6 +74,7 @@
 		897FDB22CFF8A0D3D1DB716B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9A53005B5F483332024F2DCC /* DriveLikeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveLikeApp.swift; sourceTree = "<group>"; };
 		9FD4FC28966377E3B8EB84B9 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		B37E8C9D7CED220F2DF071CC /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
 		B9309F5451A02BA4D0C7D7F0 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		CAA2803070803F7E6A535C5A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F720FDCE5CF993DE1D64C0B3 /* PlaybackPollingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPollingManager.swift; sourceTree = "<group>"; };
@@ -95,6 +99,7 @@
 				B9309F5451A02BA4D0C7D7F0 /* DiscoverView.swift */,
 				9A53005B5F483332024F2DCC /* DriveLikeApp.swift */,
 				020D0792862E504FB50B2D3B /* DrivesView.swift */,
+				045C8DDB7B5D1F9D0A95337E /* MapView.swift */,
 				44F90849A10E85C71C0B4C1E /* SettingsView.swift */,
 			);
 			path = App;
@@ -122,6 +127,7 @@
 			children = (
 				0686058A5D8067A6518B2178 /* SpotifyAPIManager.swift */,
 				1F6693AB9445052650BDB23B /* SpotifyModels.swift */,
+				B37E8C9D7CED220F2DF071CC /* SupabaseManager.swift */,
 			);
 			path = API;
 			sourceTree = "<group>";
@@ -270,12 +276,14 @@
 				9EC8ED04BEF80E211CD720DE /* DriveLikeApp.swift in Sources */,
 				A98CB6BEA421A5C157D3AF54 /* DrivesView.swift in Sources */,
 				244D0D49BF4607614F295474 /* LiveActivityManager.swift in Sources */,
+				05F7060AB487A16233F25B11 /* MapView.swift in Sources */,
 				4DCB58620088D2AAF2460F49 /* PlaybackPollingManager.swift in Sources */,
 				2EDB4A0B994F2A0CB3CC5E9D /* SettingsView.swift in Sources */,
 				25DCBA97338228F2AED68F2A /* SharedStore.swift in Sources */,
 				0D5D6588878761D5523541C9 /* SpotifyAPIManager.swift in Sources */,
 				7C8B25F0A3ED2511271EB55A /* SpotifyAuthManager.swift in Sources */,
 				11E0927A47FA77A0933BF04B /* SpotifyModels.swift in Sources */,
+				32D41E45C7BF865440257D74 /* SupabaseManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

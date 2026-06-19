@@ -101,6 +101,20 @@ final class SpotifyAPIManager {
         }
     }
 
+    // MARK: - Current User
+
+    func getCurrentUserId() async throws -> String {
+        guard let token else { throw SpotifyAPIError.noToken }
+        var req = URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as! HTTPURLResponse).statusCode == 200 else {
+            throw SpotifyAPIError.http((resp as! HTTPURLResponse).statusCode)
+        }
+        struct Me: Decodable { let id: String }
+        return try JSONDecoder().decode(Me.self, from: data).id
+    }
+
     // MARK: - Track Details (album art, album name, duration)
 
     func getTrackDetails(id: String) async throws -> TrackDetails {

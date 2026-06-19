@@ -12,6 +12,7 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
     static let shared = SpotifyAuthManager()
 
     @Published var isAuthenticated = false
+    @Published var spotifyUserId: String?
 
     let defaults = UserDefaults(suiteName: kAppGroup)!
     private var codeVerifier = ""
@@ -19,6 +20,8 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        // Restore cached Spotify user ID so Supabase sync works without a new network call
+        spotifyUserId = UserDefaults.standard.string(forKey: "drivelike_spotify_user_id")
         if let expiry = defaults.object(forKey: "spotify_token_expiry") as? Date,
            expiry > Date(),
            let token = defaults.string(forKey: "spotify_access_token") {
@@ -91,6 +94,16 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
             expiresIn: max(60, remaining)
         )
 
+        // Seed Spotify user ID for Supabase (fetches once, then cached in UserDefaults)
+        if spotifyUserId == nil {
+            if let cached = UserDefaults.standard.string(forKey: "drivelike_spotify_user_id") {
+                spotifyUserId = cached
+            } else if let uid = try? await SpotifyAPIManager.shared.getCurrentUserId() {
+                spotifyUserId = uid
+                UserDefaults.standard.set(uid, forKey: "drivelike_spotify_user_id")
+            }
+        }
+
         guard expiry < Date().addingTimeInterval(60),
               let refresh = defaults.string(forKey: "spotify_refresh_token")
         else { return }
@@ -139,9 +152,11 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
         defaults.removeObject(forKey: "spotify_access_token")
         defaults.removeObject(forKey: "spotify_refresh_token")
         defaults.removeObject(forKey: "spotify_token_expiry")
+        UserDefaults.standard.removeObject(forKey: "drivelike_spotify_user_id")
         SharedStore.clearTokenCache()
         SharedStore.clearReauthNeeded()
         isAuthenticated = false
+        spotifyUserId = nil
     }
 
     private func postToken(params: [String: String]) async {

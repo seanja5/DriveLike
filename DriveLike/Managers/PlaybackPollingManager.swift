@@ -35,7 +35,24 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.poll() }
         }
-        Task { @MainActor in await poll() }
+        Task { @MainActor in
+            await poll()
+            // Pull from Supabase on fresh install (when local store is empty)
+            if likedTracks.isEmpty { await syncFromCloud() }
+        }
+    }
+
+    func syncFromCloud() async {
+        guard let userId = auth.spotifyUserId, !userId.isEmpty else { return }
+        guard let remote = try? await SupabaseManager.shared.fetchLikedTracks(userId: userId),
+              !remote.isEmpty else { return }
+        let local = SharedStore.readLikedTracks()
+        // Merge: local takes precedence (may have newer location data from the widget)
+        var merged: [String: LikedTrack] = Dictionary(uniqueKeysWithValues: remote.map { ($0.trackId, $0) })
+        for track in local { merged[track.trackId] = track }
+        let result = Array(merged.values).sorted { $0.likedAt < $1.likedAt }
+        SharedStore.writeLikedTracks(result)
+        likedTracks = result
     }
 
     func stop() {
@@ -77,10 +94,14 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         likedTracks  = SharedStore.readLikedTracks()
         await auth.refreshIfNeeded()
 
-        // Fetch recommendations when liked count changes
+        // Fetch recommendations + sync to Supabase when liked count changes
         if likedTracks.count != lastLikedCount && !likedTracks.isEmpty {
             lastLikedCount = likedTracks.count
             await fetchRecommendations()
+            if let userId = auth.spotifyUserId, !userId.isEmpty {
+                let snapshot = likedTracks
+                Task { await SupabaseManager.shared.upsertLikedTracks(snapshot, userId: userId) }
+            }
         }
 
         do {
