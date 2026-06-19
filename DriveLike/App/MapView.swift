@@ -71,7 +71,8 @@ final class GreenPinAnnotationView: MKAnnotationView {
 struct MapKitMapView: UIViewRepresentable {
     let tracks: [LikedTrack]
     let interactive: Bool
-    var onPinTap: ((LikedTrack) -> Void)? = nil
+    // CGPoint is the screen coordinate of the annotation view center (for callout positioning)
+    var onPinTap: ((LikedTrack, CGPoint) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
         let map = MKMapView()
@@ -124,9 +125,9 @@ struct MapKitMapView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onPinTap: onPinTap) }
 
     final class Coordinator: NSObject, MKMapViewDelegate {
-        var onPinTap: ((LikedTrack) -> Void)?
+        var onPinTap: ((LikedTrack, CGPoint) -> Void)?
 
-        init(onPinTap: ((LikedTrack) -> Void)?) { self.onPinTap = onPinTap }
+        init(onPinTap: ((LikedTrack, CGPoint) -> Void)?) { self.onPinTap = onPinTap }
 
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard annotation is TrackAnnotation else { return nil }
@@ -136,9 +137,64 @@ struct MapKitMapView: UIViewRepresentable {
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             guard let ann = view.annotation as? TrackAnnotation else { return }
+            // Convert annotation view center to screen (window) coordinates
+            let screenPoint = map.convert(view.center, to: nil)
             map.deselectAnnotation(ann, animated: false)
-            onPinTap?(ann.track)
+            onPinTap?(ann.track, screenPoint)
         }
+    }
+}
+
+// MARK: - Callout Bubble Shape
+
+// Rounded rectangle with a downward-pointing arrow at center-bottom.
+private struct CalloutBubble: Shape {
+    var cornerRadius: CGFloat = 14
+    var arrowWidth: CGFloat = 14
+    var arrowHeight: CGFloat = 9
+
+    func path(in rect: CGRect) -> Path {
+        let r = cornerRadius
+        let card = CGRect(x: rect.minX, y: rect.minY,
+                          width: rect.width, height: rect.height - arrowHeight)
+        let mid = rect.midX
+        var p = Path()
+        p.move(to: CGPoint(x: card.minX + r, y: card.minY))
+        p.addLine(to: CGPoint(x: card.maxX - r, y: card.minY))
+        p.addArc(center: CGPoint(x: card.maxX - r, y: card.minY + r),
+                 radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: card.maxX, y: card.maxY - r))
+        p.addArc(center: CGPoint(x: card.maxX - r, y: card.maxY - r),
+                 radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: mid + arrowWidth / 2, y: card.maxY))
+        p.addLine(to: CGPoint(x: mid, y: rect.maxY))           // arrow tip
+        p.addLine(to: CGPoint(x: mid - arrowWidth / 2, y: card.maxY))
+        p.addLine(to: CGPoint(x: card.minX + r, y: card.maxY))
+        p.addArc(center: CGPoint(x: card.minX + r, y: card.maxY - r),
+                 radius: r, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        p.addLine(to: CGPoint(x: card.minX, y: card.minY + r))
+        p.addArc(center: CGPoint(x: card.minX + r, y: card.minY + r),
+                 radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - Popup size constants (shared between DriveMapView and TrackPinPopup)
+
+private enum Callout {
+    static let width: CGFloat    = 260
+    static let cardHeight: CGFloat = 68
+    static let arrowHeight: CGFloat = 9
+    static var totalHeight: CGFloat { cardHeight + arrowHeight }
+    // Vertical offset from pin circle center to popup center
+    // pin top = pinCenter.y - 18; gap = 6; then position popup center above arrow tip
+    static func centerY(from pinCenter: CGPoint) -> CGFloat {
+        pinCenter.y - 18 - 6 - totalHeight / 2
+    }
+    static func clampedX(_ x: CGFloat) -> CGFloat {
+        let half = width / 2 + 12
+        return min(max(x, half), UIScreen.main.bounds.width - half)
     }
 }
 
@@ -150,25 +206,17 @@ struct DriveMapView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTrack: LikedTrack?
+    @State private var pinScreenPoint: CGPoint = .zero
 
     var body: some View {
         ZStack(alignment: .top) {
-            MapKitMapView(tracks: tracks, interactive: true) { tapped in
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            MapKitMapView(tracks: tracks, interactive: true) { tapped, screenPoint in
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
                     selectedTrack = tapped
+                    pinScreenPoint = screenPoint
                 }
             }
             .ignoresSafeArea()
-
-            // Transparent tap area to dismiss pin popup when tapping the map
-            if selectedTrack != nil {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.easeOut(duration: 0.2)) { selectedTrack = nil }
-                    }
-                    .ignoresSafeArea()
-            }
 
             // Back button
             HStack {
@@ -194,20 +242,21 @@ struct DriveMapView: View {
             }
             .padding(.top, 8)
 
-            // Pin popup
-            VStack {
-                Spacer()
-                if let track = selectedTrack {
-                    TrackPinPopup(
-                        track: track,
-                        details: trackDetails[track.trackId],
-                        onDismiss: {
-                            withAnimation(.easeOut(duration: 0.2)) { selectedTrack = nil }
-                        }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(10)
-                }
+            // Callout popup — floats above the tapped pin
+            if let track = selectedTrack {
+                TrackPinPopup(
+                    track: track,
+                    details: trackDetails[track.trackId],
+                    onDismiss: {
+                        withAnimation(.easeOut(duration: 0.18)) { selectedTrack = nil }
+                    }
+                )
+                .position(
+                    x: Callout.clampedX(pinScreenPoint.x),
+                    y: Callout.centerY(from: pinScreenPoint)
+                )
+                .transition(.scale(scale: 0.78, anchor: .bottom).combined(with: .opacity))
+                .zIndex(10)
             }
         }
         .preferredColorScheme(.dark)
@@ -215,7 +264,7 @@ struct DriveMapView: View {
     }
 }
 
-// MARK: - Track Pin Popup
+// MARK: - Track Pin Popup (callout style)
 
 struct TrackPinPopup: View {
     let track: LikedTrack
@@ -229,66 +278,72 @@ struct TrackPinPopup: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            Group {
-                if let urlStr = details?.albumArtURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let img): img.resizable().aspectRatio(contentMode: .fill)
-                        default: placeholderArt
-                        }
-                    }
-                } else {
-                    placeholderArt
-                }
-            }
-            .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(track.trackName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.textPrim)
-                    .lineLimit(1)
-                Text(track.artistName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.textMuted)
-                    .lineLimit(1)
-                Text(likedTimeString)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.textMuted.opacity(0.7))
-            }
-
-            Spacer(minLength: 4)
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color.textMuted)
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Dismiss")
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
+        ZStack {
+            // Background: glass fill + green-tinted stroke
+            CalloutBubble(cornerRadius: 14, arrowWidth: 14, arrowHeight: Callout.arrowHeight)
                 .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.border, lineWidth: 1))
-        )
-        .shadow(color: .black.opacity(0.45), radius: 20, y: 8)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 36)
+            CalloutBubble(cornerRadius: 14, arrowWidth: 14, arrowHeight: Callout.arrowHeight)
+                .stroke(Color.accent.opacity(0.45), lineWidth: 1)
+
+            // Content sits in the card area (above arrow)
+            HStack(spacing: 10) {
+                Group {
+                    if let urlStr = details?.albumArtURL, let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let img): img.resizable().aspectRatio(contentMode: .fill)
+                            default: placeholderArt
+                            }
+                        }
+                    } else {
+                        placeholderArt
+                    }
+                }
+                .frame(width: 42, height: 42)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.trackName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.textPrim)
+                        .lineLimit(1)
+                    Text(track.artistName)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.textMuted)
+                        .lineLimit(1)
+                    Text(likedTimeString)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.accent)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.textMuted)
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(Color.surface.opacity(0.5)))
+                }
+                .accessibilityLabel("Dismiss")
+            }
+            .padding(.horizontal, 12)
+            // Push content up out of the arrow area
+            .padding(.bottom, Callout.arrowHeight)
+            .frame(height: Callout.totalHeight)
+        }
+        .frame(width: Callout.width, height: Callout.totalHeight)
+        .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(track.trackName) by \(track.artistName), liked \(likedTimeString)")
     }
 
     private var placeholderArt: some View {
-        RoundedRectangle(cornerRadius: 10)
+        RoundedRectangle(cornerRadius: 8)
             .fill(Color.surface)
             .overlay(
                 Image(systemName: "music.note")
-                    .font(.system(size: 20, weight: .thin))
+                    .font(.system(size: 16, weight: .thin))
                     .foregroundStyle(Color.textMuted)
             )
     }
@@ -350,12 +405,9 @@ struct MapPreviewCard: View {
     private var noLocationView: some View {
         ZStack {
             Color.bgBase
-            VStack(spacing: 10) {
-                Image(systemName: "map")
-                    .font(.system(size: 36, weight: .thin))
-                    .foregroundStyle(Color.textMuted.opacity(0.4))
-            }
+            Image(systemName: "map")
+                .font(.system(size: 36, weight: .thin))
+                .foregroundStyle(Color.textMuted.opacity(0.4))
         }
     }
 }
-

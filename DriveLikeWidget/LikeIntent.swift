@@ -6,6 +6,8 @@ import Foundation
 struct LikeTrackIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Like Track"
     static var description = IntentDescription("Save the currently playing track to your DriveLike list")
+    // Allow the heart button to fire from the lock screen without requiring Face ID
+    static var authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     @Parameter(title: "Track ID")     var trackId: String
     @Parameter(title: "Track Name")   var trackName: String
