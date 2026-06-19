@@ -4,6 +4,7 @@ struct DiscoverView: View {
     @EnvironmentObject var polling: PlaybackPollingManager
     @Environment(\.openURL) var openURL
     @State private var appear = false
+    @State private var isLoading = false
 
     var body: some View {
         ZStack {
@@ -12,13 +13,40 @@ struct DiscoverView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Page header
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Discover")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.textPrim)
-                        Text("Based on what you like while driving")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.textMuted)
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Discover")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color.textPrim)
+                            Text("Based on what you like while driving")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                        Spacer()
+                        if !polling.likedTracks.isEmpty {
+                            Button {
+                                guard !isLoading else { return }
+                                isLoading = true
+                                Task {
+                                    await polling.fetchRecommendations()
+                                    isLoading = false
+                                }
+                            } label: {
+                                Image(systemName: isLoading ? "arrow.clockwise" : "arrow.clockwise")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Color.textMuted)
+                                    .rotationEffect(.degrees(isLoading ? 360 : 0))
+                                    .animation(isLoading ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: isLoading)
+                                    .frame(width: 36, height: 36)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.surface)
+                                            .overlay(Circle().strokeBorder(Color.border, lineWidth: 1))
+                                    )
+                            }
+                            .buttonStyle(PressScaleStyle())
+                            .disabled(isLoading)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 24)
@@ -27,8 +55,10 @@ struct DiscoverView: View {
 
                     if polling.likedTracks.isEmpty {
                         emptyStateLikeSongs
-                    } else if polling.recommendations.isEmpty {
+                    } else if polling.recommendations.isEmpty && isLoading {
                         loadingState
+                    } else if polling.recommendations.isEmpty {
+                        emptyStateLoading
                     } else {
                         recommendationList
                     }
@@ -37,10 +67,44 @@ struct DiscoverView: View {
                 }
             }
         }
-        .onAppear { appear = true }
+        .onAppear {
+            appear = true
+            if polling.recommendations.isEmpty && !polling.likedTracks.isEmpty {
+                isLoading = true
+                Task {
+                    await polling.fetchRecommendations()
+                    isLoading = false
+                }
+            }
+        }
     }
 
     // MARK: - States
+
+    private var emptyStateLoading: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(Color.surface)
+                    .frame(width: 80, height: 80)
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 30, weight: .thin))
+                    .foregroundStyle(Color.textMuted.opacity(0.6))
+            }
+            VStack(spacing: 8) {
+                Text("Tap refresh to load")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.textPrim)
+                Text("Hit the refresh button above\nto find music based on your drives")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.textMuted)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+        }
+        .padding(.top, 60)
+        .padding(.horizontal, 40)
+    }
 
     private var emptyStateLikeSongs: some View {
         VStack(spacing: 18) {

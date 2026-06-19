@@ -137,27 +137,40 @@ final class SpotifyAPIManager {
         return AudioFeatures(tempo: raw.tempo, energy: raw.energy, valence: raw.valence)
     }
 
-    // MARK: - Recommendations (seeded from liked driving tracks)
+    // MARK: - Discover tracks (search-based, works in dev mode)
+    // /v1/recommendations is blocked for dev-mode apps since Nov 2024 — use search instead.
 
-    func getRecommendations(seedTrackIds: [String]) async throws -> [SpotifyTrack] {
+    func getDiscoverTracks(topArtists: [String], excludeIds: Set<String>) async throws -> [SpotifyTrack] {
         guard let token else { throw SpotifyAPIError.noToken }
-        let seeds = seedTrackIds.prefix(5).joined(separator: ",")
-        var comps = URLComponents(string: "https://api.spotify.com/v1/recommendations")!
-        comps.queryItems = [
-            .init(name: "seed_tracks", value: seeds),
-            .init(name: "limit", value: "20")
-        ]
-        var req = URLRequest(url: comps.url!)
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard (resp as! HTTPURLResponse).statusCode == 200 else {
-            throw SpotifyAPIError.http((resp as! HTTPURLResponse).statusCode)
+
+        struct SArtist: Decodable { let name: String }
+        struct SItem: Decodable { let id: String; let name: String; let artists: [SArtist] }
+        struct SPage: Decodable { let items: [SItem] }
+        struct SRoot: Decodable { let tracks: SPage }
+
+        var results: [SpotifyTrack] = []
+
+        for artist in topArtists.prefix(4) {
+            var comps = URLComponents(string: "https://api.spotify.com/v1/search")!
+            comps.queryItems = [
+                .init(name: "q", value: "artist:\(artist)"),
+                .init(name: "type", value: "track"),
+                .init(name: "limit", value: "8")
+            ]
+            var req = URLRequest(url: comps.url!)
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard (resp as! HTTPURLResponse).statusCode == 200 else { continue }
+            guard let root = try? JSONDecoder().decode(SRoot.self, from: data) else { continue }
+            let tracks = root.tracks.items
+                .filter { !excludeIds.contains($0.id) }
+                .map { SpotifyTrack(id: $0.id, name: $0.name, artistName: $0.artists.first?.name ?? "") }
+            results.append(contentsOf: tracks)
         }
-        struct Artist: Decodable { let name: String }
-        struct Item:   Decodable { let id: String; let name: String; let artists: [Artist] }
-        struct Page:   Decodable { let tracks: [Item] }
-        let page = try JSONDecoder().decode(Page.self, from: data)
-        return page.tracks.map { SpotifyTrack(id: $0.id, name: $0.name, artistName: $0.artists.first?.name ?? "") }
+
+        // Deduplicate while preserving order
+        var seen = Set<String>()
+        return results.filter { seen.insert($0.id).inserted }.prefix(20).map { $0 }
     }
 
     // MARK: - Like Track (requires user-library-modify — blocked in dev mode, kept for future)

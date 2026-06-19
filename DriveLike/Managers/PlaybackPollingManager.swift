@@ -48,6 +48,16 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         await poll()
     }
 
+    func fetchRecommendations() async {
+        guard !likedTracks.isEmpty else { return }
+        let artistCounts = Dictionary(grouping: likedTracks, by: \.artistName).mapValues(\.count)
+        let topArtists = artistCounts.sorted { $0.value > $1.value }.prefix(4).map(\.key)
+        let excludeIds = Set(likedTracks.map(\.trackId))
+        if let recs = try? await api.getDiscoverTracks(topArtists: topArtists, excludeIds: excludeIds) {
+            recommendations = recs
+        }
+    }
+
     // MARK: - Location setup
 
     private func setupLocation() {
@@ -70,10 +80,7 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         // Fetch recommendations when liked count changes
         if likedTracks.count != lastLikedCount && !likedTracks.isEmpty {
             lastLikedCount = likedTracks.count
-            let seedIds = likedTracks.suffix(5).map(\.trackId)
-            if let recs = try? await api.getRecommendations(seedTrackIds: seedIds) {
-                recommendations = recs
-            }
+            await fetchRecommendations()
         }
 
         do {
