@@ -69,44 +69,6 @@ final class GreenPinAnnotationView: MKAnnotationView {
     }
 }
 
-// MARK: - Cluster Annotation View
-
-final class ClusterAnnotationView: MKAnnotationView {
-    private let circle = UIView()
-    private let countLabel = UILabel()
-
-    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
-        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-
-        circle.frame = bounds
-        circle.layer.cornerRadius = 22
-        circle.backgroundColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 1)
-        circle.layer.borderWidth = 3
-        circle.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
-        circle.layer.shadowColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 0.55).cgColor
-        circle.layer.shadowRadius = 10
-        circle.layer.shadowOpacity = 1
-        circle.layer.shadowOffset = CGSize(width: 0, height: 2)
-        addSubview(circle)
-
-        countLabel.textColor = .white
-        countLabel.font = .systemFont(ofSize: 15, weight: .bold)
-        countLabel.textAlignment = .center
-        countLabel.frame = bounds
-        addSubview(countLabel)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func prepareForDisplay() {
-        super.prepareForDisplay()
-        if let cluster = annotation as? MKClusterAnnotation {
-            countLabel.text = "\(cluster.memberAnnotations.count)"
-        }
-    }
-}
-
 // MARK: - MapKit UIViewRepresentable
 
 struct MapKitMapView: UIViewRepresentable {
@@ -129,8 +91,6 @@ struct MapKitMapView: UIViewRepresentable {
         map.delegate = context.coordinator
         map.register(GreenPinAnnotationView.self,
                      forAnnotationViewWithReuseIdentifier: GreenPinAnnotationView.reuseId)
-        map.register(ClusterAnnotationView.self,
-                     forAnnotationViewWithReuseIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier)
         return map
     }
 
@@ -182,10 +142,14 @@ struct MapKitMapView: UIViewRepresentable {
         }
 
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            if annotation is MKClusterAnnotation {
-                return map.dequeueReusableAnnotationView(
-                    withIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier,
-                    for: annotation)
+            if let cluster = annotation as? MKClusterAnnotation {
+                // MKMarkerAnnotationView is battle-tested with didSelect — no custom class needed
+                let v = MKMarkerAnnotationView(annotation: cluster, reuseIdentifier: nil)
+                v.markerTintColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 1)
+                v.glyphText = "\(cluster.memberAnnotations.count)"
+                v.titleVisibility = .hidden
+                v.subtitleVisibility = .hidden
+                return v
             }
             guard annotation is TrackAnnotation else { return nil }
             return map.dequeueReusableAnnotationView(withIdentifier: GreenPinAnnotationView.reuseId,
@@ -194,25 +158,10 @@ struct MapKitMapView: UIViewRepresentable {
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             if let cluster = view.annotation as? MKClusterAnnotation {
-                // Zoom to fit all member pins — MapKit un-clusters once they no longer overlap
-                let members = cluster.memberAnnotations
                 map.deselectAnnotation(cluster, animated: false)
-                if members.isEmpty { return }
-
-                // Build a bounding rect across all members with a minimum size
-                // so identical-coordinate pins still zoom to a usable street level
-                var zoomRect = MKMapRect.null
-                for ann in members {
-                    let pt = MKMapPoint(ann.coordinate)
-                    let minPad = 20.0   // ~20 MapKit units ≈ street-level buffer
-                    zoomRect = zoomRect.union(
-                        MKMapRect(x: pt.x - minPad, y: pt.y - minPad,
-                                  width: minPad * 2, height: minPad * 2))
-                }
-                map.setVisibleMapRect(
-                    zoomRect,
-                    edgePadding: UIEdgeInsets(top: 100, left: 60, bottom: 100, right: 60),
-                    animated: true)
+                // showAnnotations zooms to fit every member pin; MapKit un-clusters them
+                // once their annotation views no longer overlap at the new zoom level
+                map.showAnnotations(cluster.memberAnnotations, animated: true)
                 return
             }
 
