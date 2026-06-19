@@ -132,10 +132,7 @@ struct MapKitMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var onPinTap: ((LikedTrack, CGPoint) -> Void)?
         var onPositionUpdate: ((CGPoint) -> Void)?
-        var selectedCoordinate: CLLocationCoordinate2D?
-
-        // Tracks whether clustering is currently on so we only re-add annotations
-        // when the state actually flips (not on every region-change callback)
+        var selectedAnnotation: TrackAnnotation?   // tracks tapped pin for popup position
         var clusteringActive: Bool = true
 
         init(onPinTap: ((LikedTrack, CGPoint) -> Void)?,
@@ -154,19 +151,26 @@ struct MapKitMapView: UIViewRepresentable {
                 return v
             }
             guard annotation is TrackAnnotation else { return nil }
-            let view = map.dequeueReusableAnnotationView(
+            let v = map.dequeueReusableAnnotationView(
                 withIdentifier: GreenPinAnnotationView.reuseId, for: annotation)
-            // Stamp the current clustering preference onto the recycled view
-            (view as? GreenPinAnnotationView)?.clusteringIdentifier =
-                clusteringActive ? "drivelike" : nil
-            return view
+            if let pin = v as? GreenPinAnnotationView {
+                pin.clusteringIdentifier = clusteringActive ? "drivelike" : nil
+                pin.centerOffset = CGPoint(x: 0, y: -18)  // reset spread from previous use
+            }
+            return v
+        }
+
+        // After MapKit positions newly-added views, fan out any that overlap
+        func mapView(_ map: MKMapView, didAdd views: [MKAnnotationView]) {
+            guard !clusteringActive else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.spreadOverlappingPins(in: map)
+            }
         }
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             if let cluster = view.annotation as? MKClusterAnnotation {
                 map.deselectAnnotation(cluster, animated: false)
-                // Zoom to 0.002° (~200 m) — just below the 0.003° threshold, so
-                // mapViewDidChangeVisibleRegion disables clustering and the pins separate
                 map.setRegion(
                     MKCoordinateRegion(
                         center: cluster.coordinate,
@@ -175,29 +179,77 @@ struct MapKitMapView: UIViewRepresentable {
                 return
             }
             guard let ann = view.annotation as? TrackAnnotation else { return }
-            selectedCoordinate = ann.coordinate
-            let pt = map.convert(ann.coordinate, toPointTo: map)
+            selectedAnnotation = ann
+            // Use the view's actual visual center (includes any spread offset) so
+            // the popup arrow points at the spread pin, not the raw coordinate
+            let pt = view.center
             map.deselectAnnotation(ann, animated: false)
             onPinTap?(ann.track, pt)
         }
 
         func mapViewDidChangeVisibleRegion(_ map: MKMapView) {
-            // Update callout popup position
-            if let coord = selectedCoordinate {
-                onPositionUpdate?(map.convert(coord, toPointTo: map))
+            // Track popup above the pin's VISUAL center (spread-aware)
+            if let ann = selectedAnnotation, let v = map.view(for: ann) {
+                onPositionUpdate?(v.center)
             }
 
-            // Threshold: cluster when zoomed out (span > 0.003° ≈ 300 m),
-            // show individual pins when zoomed in.
             let shouldCluster = map.region.span.latitudeDelta > 0.003
             guard shouldCluster != clusteringActive else { return }
             clusteringActive = shouldCluster
 
-            // Force MapKit to call viewFor again (the only way clusteringIdentifier
-            // changes take effect) by removing and immediately re-adding all pins.
             let pins = map.annotations.compactMap { $0 as? TrackAnnotation }
             map.removeAnnotations(pins)
-            map.addAnnotations(pins)
+            map.addAnnotations(pins)   // triggers viewFor → didAdd → spreadOverlappingPins
+        }
+
+        // Fan overlapping pins out horizontally with a spring animation.
+        // Separation ≈ 84 pt per pair ≈ 1 inch.
+        private func spreadOverlappingPins(in map: MKMapView) {
+            let pins = map.annotations.compactMap { $0 as? TrackAnnotation }
+            guard pins.count > 1 else { return }
+
+            // Current screen position of each pin (geographic coordinate, no spread yet)
+            let items: [(TrackAnnotation, CGPoint)] = pins.map {
+                ($0, map.convert($0.coordinate, toPointTo: map))
+            }
+
+            let minSep: CGFloat = 44    // one pin diameter — threshold for "overlapping"
+            let radius: CGFloat  = 42   // half-spread → 84 pt between two pins ≈ 1 inch
+
+            // Group pins that are within minSep of each other
+            var groupId = Array(repeating: -1, count: items.count)
+            var nextId  = 0
+            for i in 0..<items.count {
+                if groupId[i] >= 0 { continue }
+                groupId[i] = nextId
+                for j in (i + 1)..<items.count {
+                    if groupId[j] >= 0 { continue }
+                    let dx = items[i].1.x - items[j].1.x
+                    let dy = items[i].1.y - items[j].1.y
+                    if (dx * dx + dy * dy).squareRoot() < minSep {
+                        groupId[j] = nextId
+                    }
+                }
+                nextId += 1
+            }
+
+            // For each collision group, spread its members horizontally
+            let groups = Dictionary(grouping: items.indices, by: { groupId[$0] })
+            for (_, indices) in groups where indices.count > 1 {
+                let n = indices.count
+                for (k, idx) in indices.enumerated() {
+                    let t = CGFloat(k) / CGFloat(max(n - 1, 1))   // 0 → 1
+                    let x = radius * (2 * t - 1)                   // -radius → +radius
+                    guard let view = map.view(for: items[idx].0) as? GreenPinAnnotationView
+                    else { continue }
+                    UIView.animate(
+                        withDuration: 0.38, delay: 0,
+                        usingSpringWithDamping: 0.7, initialSpringVelocity: 0.4,
+                        options: [.allowUserInteraction, .beginFromCurrentState]) {
+                        view.centerOffset = CGPoint(x: x, y: -18)
+                    }
+                }
+            }
         }
     }
 }
@@ -244,12 +296,10 @@ private enum Callout {
     static let arrowHeight: CGFloat = 9
     static var totalHeight: CGFloat { cardHeight + arrowHeight }
 
-    // coordPt.y = geographic coordinate = bottom of pin circle.
-    // Circle top = coordPt.y - 36.  Gap above circle = 42 pt (6 original + 36 = one diameter).
-    // Arrow tip  = coordPt.y - 36 - 42 = coordPt.y - 78.
-    // Popup center = arrowTip - totalHeight / 2.
-    static func centerY(from coordPt: CGPoint) -> CGFloat {
-        coordPt.y - 78 - totalHeight / 2
+    // pt is view.center (visual center of pin circle, includes any spread offset).
+    // Circle top = pt.y - 18.  Gap = 42 pt.  Arrow tip = pt.y - 60.
+    static func centerY(from pt: CGPoint) -> CGFloat {
+        pt.y - 60 - totalHeight / 2
     }
 
     static func clampedX(_ x: CGFloat) -> CGFloat {
