@@ -45,17 +45,8 @@ struct LikeTrackIntent: LiveActivityIntent {
         ))
         SharedStore.addLikedId(trackId)
 
-        // Dismiss the popup 1 second after the heart fills
-        let dismissId = trackId
-        Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            for act in Activity<DriveLikeActivityAttributes>.activities
-                    where act.contentState.trackId == dismissId {
-                await act.end(
-                    ActivityContent(state: act.contentState, staleDate: nil),
-                    dismissalPolicy: .immediate)
-            }
-        }
+        // The activity stays alive — the main app's poll updates it in place
+        // when the next song starts, which works from the background.
 
         return .result()
     }

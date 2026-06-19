@@ -121,11 +121,16 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
                 let isLiked = likedIds.contains(track.id)
 
                 if currentTrack?.id != track.id {
-                    if currentTrack != nil { await live.end() }
-                    // Don't restart the popup for tracks the user already liked —
-                    // the activity was dismissed after heart fill and shouldn't come back.
-                    if !isLiked {
-                        await live.start(track: track, isLiked: false, speedGated: speedGateBlocks)
+                    if currentTrack == nil {
+                        // First song after launch or after silence — Activity.request() requires
+                        // foreground, which is safe here since currentTrack being nil means the
+                        // app was just opened or music just resumed.
+                        await live.start(track: track, isLiked: isLiked, speedGated: speedGateBlocks)
+                    } else {
+                        // Song changed while music was playing — update the existing activity
+                        // in place. activity.update() works from the background, so the
+                        // lock-screen widget transitions to the new song without opening the app.
+                        await live.updateTrack(track, isLiked: isLiked)
                     }
                     currentTrack = track
                 } else {

@@ -50,24 +50,40 @@ final class LiveActivityManager {
         }
     }
 
-    // Watch for the activity ending (programmatically, after heart fill) and
-    // immediately poll so the next-song popup appears without waiting 5 seconds.
+    // Update the existing activity in place with new song data.
+    // Called on every song change while music is playing — activity.update() works
+    // from the background, which is the key property that makes the next-song widget
+    // appear without the user having to open the app.
+    func updateTrack(_ track: SpotifyTrack, isLiked: Bool) async {
+        let state = DriveLikeActivityAttributes.ContentState(
+            trackName: track.name,
+            artistName: track.artistName,
+            trackId: track.id,
+            isLiked: isLiked
+        )
+        if let a = activity {
+            await a.update(ActivityContent(state: state, staleDate: nil))
+        } else {
+            // Activity was manually dismissed or killed — try to restart.
+            await start(track: track, isLiked: isLiked)
+        }
+    }
+
+    // Watch for the activity ending and clear the local reference so the next poll
+    // can restart it cleanly (handles manual dismissal and iOS kill scenarios).
     private func observeActivityState() {
         guard let a = activity else { return }
         Task { [weak self] in
             for await state in a.activityStateUpdates {
                 guard state == .ended else { continue }
-                // Popup dismissed after heart fill — immediately check for the next
-                // song so its popup can appear without waiting for the next timer tick.
+                await MainActor.run { self?.activity = nil }
                 await PlaybackPollingManager.shared.forcePoll()
             }
-            _ = self
         }
     }
 
-    // Called by the polling loop. If the heart just flipped to filled, mirror
-    // the same 1-second dismiss that the widget intent does (handles the edge
-    // case where the poll races ahead of the intent's optimistic update).
+    // Called by the polling loop to mirror the liked state from SharedStore into the
+    // widget — handles the race where the poll runs before the intent's optimistic fill.
     func syncLikedState(trackId: String, isLiked: Bool) async {
         guard let a = activity,
               a.contentState.trackId == trackId,
@@ -83,12 +99,8 @@ final class LiveActivityManager {
             ),
             staleDate: nil
         ))
-        if isLiked {
-            Task { [weak self] in
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                await self?.end()
-            }
-        }
+        // No dismiss after like — the activity stays alive and updates in place
+        // when the next song starts, which is how background song-change detection works.
     }
 
     func end() async {
