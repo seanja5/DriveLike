@@ -98,7 +98,7 @@ struct DrivesView: View {
             }
         }
         .fullScreenCover(isPresented: $showFullMap) {
-            DriveMapView(tracks: tracksWithLocation, trackDetails: trackDetails)
+            DriveMapView(tracks: tracksWithLocation, trackDetails: $trackDetails)
         }
         .sheet(item: $selectedTrack) { track in
             TrackDetailSheet(
@@ -117,6 +117,7 @@ struct DrivesView: View {
             trackDetails  = SharedStore.readTrackDetailsCache()
             appear = true
             fetchMissingFeatures()
+            fetchAllMissingTrackDetails()
             // Pull caches from Supabase if local is empty (e.g. after reinstall)
             Task {
                 guard let userId = auth.spotifyUserId, !userId.isEmpty else { return }
@@ -233,6 +234,11 @@ struct DrivesView: View {
     }
 
     // MARK: - Lazy feature fetching
+
+    private func fetchAllMissingTrackDetails() {
+        let missing = polling.likedTracks.filter { trackDetails[$0.trackId] == nil }
+        for track in missing { fetchTrackDetails(for: track) }
+    }
 
     private func fetchMissingFeatures() {
         let missing = polling.likedTracks.filter { audioFeatures[$0.trackId] == nil }

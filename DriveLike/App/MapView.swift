@@ -31,8 +31,10 @@ final class GreenPinAnnotationView: MKAnnotationView {
 
     private func configure() {
         frame = CGRect(x: 0, y: 0, width: 36, height: 36)
-        // centerOffset shifts the view so the circle bottom sits on the coordinate point
+        // Circle bottom sits on the geographic coordinate point
         centerOffset = CGPoint(x: 0, y: -18)
+        // Group nearby pins under one cluster identifier
+        clusteringIdentifier = "drivelike"
 
         circle.frame = bounds
         circle.layer.cornerRadius = 18
@@ -67,14 +69,50 @@ final class GreenPinAnnotationView: MKAnnotationView {
     }
 }
 
+// MARK: - Cluster Annotation View
+
+final class ClusterAnnotationView: MKAnnotationView {
+    private let circle = UIView()
+    private let countLabel = UILabel()
+
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+
+        circle.frame = bounds
+        circle.layer.cornerRadius = 22
+        circle.backgroundColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 1)
+        circle.layer.borderWidth = 3
+        circle.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        circle.layer.shadowColor = UIColor(red: 0.114, green: 0.729, blue: 0.333, alpha: 0.55).cgColor
+        circle.layer.shadowRadius = 10
+        circle.layer.shadowOpacity = 1
+        circle.layer.shadowOffset = CGSize(width: 0, height: 2)
+        addSubview(circle)
+
+        countLabel.textColor = .white
+        countLabel.font = .systemFont(ofSize: 15, weight: .bold)
+        countLabel.textAlignment = .center
+        countLabel.frame = bounds
+        addSubview(countLabel)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func prepareForDisplay() {
+        super.prepareForDisplay()
+        if let cluster = annotation as? MKClusterAnnotation {
+            countLabel.text = "\(cluster.memberAnnotations.count)"
+        }
+    }
+}
+
 // MARK: - MapKit UIViewRepresentable
 
 struct MapKitMapView: UIViewRepresentable {
     let tracks: [LikedTrack]
     let interactive: Bool
-    // Called once on tap: (track, mapViewPoint of coordinate)
     var onPinTap: ((LikedTrack, CGPoint) -> Void)? = nil
-    // Called every frame while map moves: updated mapViewPoint of the selected coordinate
     var onPositionUpdate: ((CGPoint) -> Void)? = nil
 
     func makeUIView(context: Context) -> MKMapView {
@@ -91,6 +129,8 @@ struct MapKitMapView: UIViewRepresentable {
         map.delegate = context.coordinator
         map.register(GreenPinAnnotationView.self,
                      forAnnotationViewWithReuseIdentifier: GreenPinAnnotationView.reuseId)
+        map.register(ClusterAnnotationView.self,
+                     forAnnotationViewWithReuseIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier)
         return map
     }
 
@@ -133,7 +173,6 @@ struct MapKitMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var onPinTap: ((LikedTrack, CGPoint) -> Void)?
         var onPositionUpdate: ((CGPoint) -> Void)?
-        // Geographic coordinate of the currently selected pin (stable across map movement)
         var selectedCoordinate: CLLocationCoordinate2D?
 
         init(onPinTap: ((LikedTrack, CGPoint) -> Void)?,
@@ -143,34 +182,46 @@ struct MapKitMapView: UIViewRepresentable {
         }
 
         func mapView(_ map: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if annotation is MKClusterAnnotation {
+                return map.dequeueReusableAnnotationView(
+                    withIdentifier: MKMapViewDefaultClusterAnnotationViewReuseIdentifier,
+                    for: annotation)
+            }
             guard annotation is TrackAnnotation else { return nil }
             return map.dequeueReusableAnnotationView(withIdentifier: GreenPinAnnotationView.reuseId,
                                                      for: annotation)
         }
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
+            if let cluster = view.annotation as? MKClusterAnnotation {
+                // Zoom in to split the cluster — divide span by 3 per tap
+                let span = map.region.span
+                map.setRegion(MKCoordinateRegion(
+                    center: cluster.coordinate,
+                    span: MKCoordinateSpan(
+                        latitudeDelta: span.latitudeDelta / 3,
+                        longitudeDelta: span.longitudeDelta / 3)
+                ), animated: true)
+                map.deselectAnnotation(cluster, animated: false)
+                return
+            }
+
             guard let ann = view.annotation as? TrackAnnotation else { return }
-            // Store the geographic coordinate so we can re-project it on every map move
             selectedCoordinate = ann.coordinate
-            // Convert to map view's own coordinate space (= screen space since map fills screen)
             let pt = map.convert(ann.coordinate, toPointTo: map)
             map.deselectAnnotation(ann, animated: false)
             onPinTap?(ann.track, pt)
         }
 
-        // Fires continuously during pan and zoom — re-project the pinned coordinate
         func mapViewDidChangeVisibleRegion(_ map: MKMapView) {
             guard let coord = selectedCoordinate else { return }
-            let newPt = map.convert(coord, toPointTo: map)
-            onPositionUpdate?(newPt)
+            onPositionUpdate?(map.convert(coord, toPointTo: map))
         }
     }
 }
 
 // MARK: - Callout Bubble Shape
 
-// Rounded rectangle with a downward-pointing arrow centered at the bottom edge.
-// The arrow tip points at the pin; the card body floats above it.
 private struct CalloutBubble: Shape {
     var cornerRadius: CGFloat = 14
     var arrowWidth: CGFloat = 14
@@ -182,7 +233,6 @@ private struct CalloutBubble: Shape {
                           width: rect.width, height: rect.height - arrowHeight)
         let mid = rect.midX
         var p = Path()
-        // Trace clockwise from top-left corner, weaving through the arrow at the bottom
         p.move(to: CGPoint(x: card.minX + r, y: card.minY))
         p.addLine(to: CGPoint(x: card.maxX - r, y: card.minY))
         p.addArc(center: CGPoint(x: card.maxX - r, y: card.minY + r),
@@ -191,7 +241,7 @@ private struct CalloutBubble: Shape {
         p.addArc(center: CGPoint(x: card.maxX - r, y: card.maxY - r),
                  radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
         p.addLine(to: CGPoint(x: mid + arrowWidth / 2, y: card.maxY))
-        p.addLine(to: CGPoint(x: mid, y: rect.maxY))            // arrow tip
+        p.addLine(to: CGPoint(x: mid, y: rect.maxY))
         p.addLine(to: CGPoint(x: mid - arrowWidth / 2, y: card.maxY))
         p.addLine(to: CGPoint(x: card.minX + r, y: card.maxY))
         p.addArc(center: CGPoint(x: card.minX + r, y: card.maxY - r),
@@ -204,20 +254,20 @@ private struct CalloutBubble: Shape {
     }
 }
 
-// MARK: - Popup geometry constants
+// MARK: - Popup geometry
 
 private enum Callout {
-    static let width: CGFloat      = 260
-    static let cardHeight: CGFloat = 68
+    static let width: CGFloat       = 260
+    static let cardHeight: CGFloat  = 68
     static let arrowHeight: CGFloat = 9
     static var totalHeight: CGFloat { cardHeight + arrowHeight }
 
-    // coordPt.y is the geographic coordinate projected to screen space.
-    // Because centerOffset = (0, -18), the circle bottom sits AT the coordinate point,
-    // so the circle top = coordPt.y - 36. We place the arrow tip 6pt above circle top.
-    // Popup center = arrowTip - totalHeight/2.
+    // coordPt.y = geographic coordinate = bottom of pin circle.
+    // Circle top = coordPt.y - 36.  Gap above circle = 42 pt (6 original + 36 = one diameter).
+    // Arrow tip  = coordPt.y - 36 - 42 = coordPt.y - 78.
+    // Popup center = arrowTip - totalHeight / 2.
     static func centerY(from coordPt: CGPoint) -> CGFloat {
-        coordPt.y - 36 - 6 - totalHeight / 2
+        coordPt.y - 78 - totalHeight / 2
     }
 
     static func clampedX(_ x: CGFloat) -> CGFloat {
@@ -230,11 +280,13 @@ private enum Callout {
 
 struct DriveMapView: View {
     let tracks: [LikedTrack]
-    let trackDetails: [String: TrackDetails]
+    @Binding var trackDetails: [String: TrackDetails]
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTrack: LikedTrack?
-    @State private var pinCoordPoint: CGPoint = .zero   // map-space projection of selected coordinate
+    @State private var pinCoordPoint: CGPoint = .zero
+
+    private let api = SpotifyAPIManager.shared
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -248,7 +300,6 @@ struct DriveMapView: View {
                     }
                 },
                 onPositionUpdate: { newPt in
-                    // No animation — this fires every frame during pan/zoom
                     pinCoordPoint = newPt
                 }
             )
@@ -278,7 +329,6 @@ struct DriveMapView: View {
             }
             .padding(.top, 8)
 
-            // Callout popup — re-positioned every frame to stay glued to the pin
             if let track = selectedTrack {
                 TrackPinPopup(
                     track: track,
@@ -297,10 +347,26 @@ struct DriveMapView: View {
         }
         .preferredColorScheme(.dark)
         .accessibilityLabel("Song map with \(tracks.count) pins")
+        .onAppear { fetchMissingDetails() }
+    }
+
+    // Fetch album art for any map track not already in the details cache
+    private func fetchMissingDetails() {
+        for track in tracks where trackDetails[track.trackId] == nil {
+            Task {
+                guard let details = try? await api.getTrackDetails(id: track.trackId) else { return }
+                await MainActor.run {
+                    trackDetails[track.trackId] = details
+                    var cache = SharedStore.readTrackDetailsCache()
+                    cache[track.trackId] = details
+                    SharedStore.writeTrackDetailsCache(cache)
+                }
+            }
+        }
     }
 }
 
-// MARK: - Track Pin Popup (callout style)
+// MARK: - Track Pin Popup
 
 struct TrackPinPopup: View {
     let track: LikedTrack
@@ -362,7 +428,6 @@ struct TrackPinPopup: View {
                 .accessibilityLabel("Dismiss")
             }
             .padding(.horizontal, 12)
-            // Keep content inside the card area, above the arrow
             .padding(.bottom, Callout.arrowHeight)
             .frame(height: Callout.totalHeight)
         }
@@ -383,7 +448,7 @@ struct TrackPinPopup: View {
     }
 }
 
-// MARK: - Map Preview Card (embedded in DrivesView)
+// MARK: - Map Preview Card
 
 struct MapPreviewCard: View {
     let tracks: [LikedTrack]
