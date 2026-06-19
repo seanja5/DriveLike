@@ -5,7 +5,7 @@ import AuthenticationServices
 private let kAppGroup   = "group.com.drivelike.app"
 private let kClientId   = "b9d717af8d1549f58667611f6f0b2254"
 private let kRedirectUri = "drivelike://callback"
-private let kScopes     = "user-read-playback-state user-read-currently-playing playlist-modify-private playlist-modify-public"
+private let kScopes     = "user-read-playback-state user-read-currently-playing"
 
 @MainActor
 final class SpotifyAuthManager: NSObject, ObservableObject {
@@ -33,12 +33,7 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
                 refreshToken: defaults.string(forKey: "spotify_refresh_token"),
                 expiresIn: remaining
             )
-            let grantedScopes = SharedStore.readGrantedScopes() ?? "(no scope record)"
-            let hasPlaylistScope = grantedScopes.contains("playlist-modify-private")
-            print("🟢 [Auth] Granted scopes on disk: \(grantedScopes)")
-            print(hasPlaylistScope
-                ? "✅ [Auth] playlist-modify-private IS present — playlist writes will work"
-                : "❌ [Auth] playlist-modify-private MISSING — you must Disconnect and reconnect!")
+            print("🟢 [Auth] Granted scopes on disk: \(SharedStore.readGrantedScopes() ?? "(no scope record)")")
         } else {
             print("🔴 [Auth] App launched — no valid token found. User needs to connect.")
         }
@@ -190,18 +185,10 @@ final class SpotifyAuthManager: NSObject, ObservableObject {
             }
             isAuthenticated = true
             let scopes = tr.scope ?? "(none returned)"
-            let hasPlaylistScope = scopes.contains("playlist-modify-private")
             SharedStore.clearDebugLog()
-            SharedStore.writePlaylistId("") // force a fresh playlist on next poll
             SharedStore.appendDebugLog("=== NEW TOKEN GRANTED ===")
             SharedStore.appendDebugLog("Scopes: \(scopes)")
-            SharedStore.appendDebugLog(hasPlaylistScope
-                ? "playlist-modify-private: YES ✓"
-                : "playlist-modify-private: MISSING ✗ — must Disconnect and reconnect!")
-            SharedStore.appendDebugLog(scopes.contains("playlist-modify-public")
-                ? "playlist-modify-public: YES ✓"
-                : "playlist-modify-public: MISSING ✗")
-            print("🎉 [Auth] NEW TOKEN — scopes: \(scopes) | hasPlaylistScope=\(hasPlaylistScope)")
+            print("🎉 [Auth] NEW TOKEN — scopes: \(scopes)")
         } catch {
             print("[SpotifyAuth] Token error: \(error)")
         }

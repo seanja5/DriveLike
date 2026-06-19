@@ -20,12 +20,10 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
     private var consecutiveEmptyPolls = 0
     private let emptyPollThreshold    = 2
 
-    // Speed detection: require 2 of last 3 readings > 10 m/s (~22 mph)
     private var recentSpeeds: [Double] = []
     private var locationManager: CLLocationManager?
-
-    // Track liked count to trigger recommendation refresh only when it changes
     private var lastLikedCount = 0
+    private var isPolling = false   // prevents concurrent polls from overlapping
 
     // MARK: - Public
 
@@ -65,6 +63,23 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
         await poll()
     }
 
+    // Switch to 2-second polling for 12 seconds so the next song's popup
+    // appears within ~2 seconds of tapping "next" after liking a track.
+    func enterRapidPollMode() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.poll() }
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            guard let self, self.timer?.timeInterval == 2 else { return }
+            self.timer?.invalidate()
+            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+                Task { @MainActor in await self?.poll() }
+            }
+        }
+    }
+
     func fetchRecommendations() async {
         guard !likedTracks.isEmpty else { return }
         let artistCounts = Dictionary(grouping: likedTracks, by: \.artistName).mapValues(\.count)
@@ -90,6 +105,9 @@ final class PlaybackPollingManager: NSObject, ObservableObject {
     // MARK: - Poll
 
     private func poll() async {
+        guard !isPolling else { return }
+        isPolling = true
+        defer { isPolling = false }
         reauthNeeded = SharedStore.reauthNeeded
         likedTracks  = SharedStore.readLikedTracks()
         await auth.refreshIfNeeded()

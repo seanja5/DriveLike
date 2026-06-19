@@ -147,29 +147,6 @@ enum SharedStore {
         try? data.write(to: url, options: .atomic)
     }
 
-    // MARK: - Playlist ID
-
-    static func readPlaylistId() -> String? {
-        guard let url = containerURL?.appendingPathComponent("playlist_id.txt"),
-              let id = try? String(contentsOf: url, encoding: .utf8),
-              id.count > 4  // guard against empty-string sentinel written on re-auth
-        else { return nil }
-        return id
-    }
-
-    static func writePlaylistId(_ id: String) {
-        guard let url = containerURL?.appendingPathComponent("playlist_id.txt") else {
-            print("[SharedStore] writePlaylistId: containerURL is nil")
-            return
-        }
-        do {
-            try id.write(to: url, atomically: true, encoding: .utf8)
-            print("[SharedStore] writePlaylistId: saved \(id) to \(url.path)")
-        } catch {
-            print("[SharedStore] writePlaylistId: write failed — \(error)")
-        }
-    }
-
     // MARK: - Granted scopes (for diagnostics)
 
     static func writeGrantedScopes(_ scopes: String) {

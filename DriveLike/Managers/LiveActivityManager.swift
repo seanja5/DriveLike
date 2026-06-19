@@ -43,11 +43,13 @@ final class LiveActivityManager {
         guard let a = activity else { return }
         Task { [weak self] in
             for await state in a.activityStateUpdates {
-                if state == .ended {
-                    await PlaybackPollingManager.shared.forcePoll()
-                }
-                // .dismissed = user swiped away manually — don't restart
+                guard state == .ended else { continue }
+                // Popup dismissed after heart fill — poll immediately then switch
+                // to 2-second intervals so the next song's popup appears fast.
+                await PlaybackPollingManager.shared.forcePoll()
+                PlaybackPollingManager.shared.enterRapidPollMode()
             }
+            _ = self  // silence weak-capture warning
         }
     }
 
