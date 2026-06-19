@@ -194,15 +194,25 @@ struct MapKitMapView: UIViewRepresentable {
 
         func mapView(_ map: MKMapView, didSelect view: MKAnnotationView) {
             if let cluster = view.annotation as? MKClusterAnnotation {
-                // Zoom in to split the cluster — divide span by 3 per tap
-                let span = map.region.span
-                map.setRegion(MKCoordinateRegion(
-                    center: cluster.coordinate,
-                    span: MKCoordinateSpan(
-                        latitudeDelta: span.latitudeDelta / 3,
-                        longitudeDelta: span.longitudeDelta / 3)
-                ), animated: true)
+                // Zoom to fit all member pins — MapKit un-clusters once they no longer overlap
+                let members = cluster.memberAnnotations
                 map.deselectAnnotation(cluster, animated: false)
+                if members.isEmpty { return }
+
+                // Build a bounding rect across all members with a minimum size
+                // so identical-coordinate pins still zoom to a usable street level
+                var zoomRect = MKMapRect.null
+                for ann in members {
+                    let pt = MKMapPoint(ann.coordinate)
+                    let minPad = 20.0   // ~20 MapKit units ≈ street-level buffer
+                    zoomRect = zoomRect.union(
+                        MKMapRect(x: pt.x - minPad, y: pt.y - minPad,
+                                  width: minPad * 2, height: minPad * 2))
+                }
+                map.setVisibleMapRect(
+                    zoomRect,
+                    edgePadding: UIEdgeInsets(top: 100, left: 60, bottom: 100, right: 60),
+                    animated: true)
                 return
             }
 

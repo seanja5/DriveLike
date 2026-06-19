@@ -184,9 +184,11 @@ struct DrivesView: View {
     // MARK: - Computed stats
 
     private func topArtistName() -> String? {
-        let counts = Dictionary(grouping: polling.likedTracks, by: \.artistName)
-            .mapValues(\.count)
-        return counts.max(by: { $0.value < $1.value })?.key
+        let counts = Dictionary(grouping: polling.likedTracks, by: \.artistName).mapValues(\.count)
+        guard let maxCount = counts.values.max() else { return nil }
+        // Only show when one artist has a strict plurality — ties return nil
+        let leaders = counts.filter { $0.value == maxCount }
+        return leaders.count == 1 ? leaders.keys.first : nil
     }
 
     private func averageBPM() -> Double? {
